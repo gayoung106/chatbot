@@ -24,6 +24,14 @@ cols_20 = [f"Q20_{i}" for i in range(1,5)] # 전략적 활용 기대
 all_cols = cols_7 + cols_9 + cols_16 + cols_20
 
 # ============================================================
+# 1.5️ Likert 문항의 0값 → 결측치(NaN) 처리
+# ============================================================
+likert_cols = cols_7 + cols_9 + cols_16 + cols_20
+
+df_ai[likert_cols] = df_ai[likert_cols].replace(0, np.nan)
+df_non[likert_cols] = df_non[likert_cols].replace(0, np.nan)
+
+# ============================================================
 # 3️ (1) 기술통계: AI 활용자 / 비활용자 각각
 # ============================================================
 def descriptive_stats(df_sub, label):
@@ -58,9 +66,17 @@ reliability(df_non, "AI 비활용자")
 # ============================================================
 def efa_analysis(df_sub, label):
     print(f"\n [탐색적 요인분석 - {label}]")
+    
+    efa_data = df_sub[all_cols].dropna()
+    
     fa = FactorAnalysis(n_components=4, random_state=42)
-    fa.fit(df_sub[all_cols])
-    loadings = pd.DataFrame(fa.components_.T, index=all_cols, columns=[f"Factor{i+1}" for i in range(4)])
+    fa.fit(efa_data)
+    
+    loadings = pd.DataFrame(
+        fa.components_.T,
+        index=all_cols,
+        columns=[f"Factor{i+1}" for i in range(4)]
+    )
     print(loadings.round(3))
 
 efa_analysis(df_ai, "AI 활용자")
