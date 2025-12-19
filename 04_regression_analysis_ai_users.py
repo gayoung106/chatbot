@@ -1,5 +1,7 @@
 import pandas as pd
 import statsmodels.formula.api as smf
+import numpy as np
+from tqdm import trange
 
 # ============================================================
 # 1️ 데이터 로드 및 필터링 (AI 활용자만)
@@ -46,6 +48,80 @@ print(model2.summary())
 model3 = smf.ols("expectation_mean ~ motivation_mean + effect_mean", data=df).fit()
 print("\nStep 3: motivation + effect → expectation")
 print(model3.summary())
+
+# PROCESS Model 4 (부트스트랩 매개효과)
+N_BOOT = 5000
+indirect_effects = []
+
+for _ in trange(N_BOOT):
+    sample = df.sample(len(df), replace=True)
+
+    # a path: X → M
+    a_model = smf.ols("effect_mean ~ motivation_mean", data=sample).fit()
+    a = a_model.params["motivation_mean"]
+
+    # b path: M → Y (X 통제)
+    b_model = smf.ols(
+        "expectation_mean ~ motivation_mean + effect_mean",
+        data=sample
+    ).fit()
+    b = b_model.params["effect_mean"]
+
+    indirect_effects.append(a * b)
+
+indirect_effects = np.array(indirect_effects)
+
+ci_lower, ci_upper = np.percentile(indirect_effects, [2.5, 97.5])
+
+print("\n[PROCESS Model 4: 부트스트랩 매개효과]")
+print(f"간접효과 평균: {indirect_effects.mean():.3f}")
+print(f"95% CI: [{ci_lower:.3f}, {ci_upper:.3f}]")
+
+# PROCESS Model 7 (조절된 매개효과)
+conditional_indirect = {
+    "low": [],
+    "mean": [],
+    "high": []
+}
+
+support_mean = df["support_mean"].mean()
+support_sd = df["support_mean"].std()
+
+levels = {
+    "low": support_mean - support_sd,
+    "mean": support_mean,
+    "high": support_mean + support_sd
+}
+
+for _ in trange(N_BOOT):
+    sample = df.sample(len(df), replace=True)
+
+    # a path with moderation
+    a_model = smf.ols(
+        "effect_mean ~ motivation_mean * support_mean",
+        data=sample
+    ).fit()
+
+    a1 = a_model.params["motivation_mean"]
+    a3 = a_model.params["motivation_mean:support_mean"]
+
+    # b path
+    b_model = smf.ols(
+        "expectation_mean ~ motivation_mean + effect_mean",
+        data=sample
+    ).fit()
+    b = b_model.params["effect_mean"]
+
+    for level, w in levels.items():
+        a_cond = a1 + a3 * w
+        conditional_indirect[level].append(a_cond * b)
+
+print("\n[PROCESS Model 7: 조건부 간접효과]")
+for level in conditional_indirect:
+    arr = np.array(conditional_indirect[level])
+    ci_l, ci_u = np.percentile(arr, [2.5, 97.5])
+    print(f"{level.upper()} → mean={arr.mean():.3f}, 95% CI=[{ci_l:.3f}, {ci_u:.3f}]")
+
 
 # ============================================================
 # 5️ 조절효과 분석 (조직지원 × 활용동기)
