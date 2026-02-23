@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from pingouin import cronbach_alpha
 from factor_analyzer import FactorAnalyzer
+from scipy.stats import skew, kurtosis
 
 # ============================================================
 # 1. 데이터 로드
@@ -26,18 +27,16 @@ cols_9_voluntary = ["Q9_3", "Q9_4"]
 cols_16 = [f"Q16_{i}" for i in range(1, 8)]
 cols_20 = [f"Q20_{i}" for i in range(1, 5)]
 
-# ============================================================
-# 3. Q20 응답 구조 확인 (전체 기준으로 확인)
-# ============================================================
-
-print("\n🔎 Q20 각 문항 응답 수 (전체 기준)")
-print(df[cols_20].notna().sum())
-
-print("\n🔎 Q20 4문항 모두 응답자 수 (전체 기준)")
-print(df[cols_20].dropna().shape[0])
+all_item_cols = (
+    cols_9_passive +
+    cols_9_voluntary +
+    cols_7 +
+    cols_20 +
+    cols_16
+)
 
 # ============================================================
-# 4. 신뢰도 분석 (Listwise)
+# 3. 신뢰도 분석
 # ============================================================
 
 def reliability(df_sub, cols, label):
@@ -47,38 +46,31 @@ def reliability(df_sub, cols, label):
     return alpha
 
 print("\n==============================")
-print("신뢰도 분석")
+print("신뢰도 분석 (AI 활용자)")
 print("==============================")
 
-# AI 활용자 기준
-reliability(df_ai, cols_7, "업무효과(Q7) - AI 활용자")
-reliability(df_ai, cols_16, "조직지원(Q16) - AI 활용자")
-reliability(df_ai, cols_9_passive, "수동적 활용동기 - AI 활용자")
-reliability(df_ai, cols_9_voluntary, "자발적 활용동기 - AI 활용자")
-
-# 전략기대는 전체 기준
-reliability(df_ai, cols_20, "전략기대(Q20) - 전체 응답자")
+reliability(df_ai, cols_7, "업무효과(Q7)")
+reliability(df_ai, cols_16, "조직지원(Q16)")
+reliability(df_ai, cols_9_passive, "수동적 활용동기")
+reliability(df_ai, cols_9_voluntary, "자발적 활용동기")
+reliability(df_ai, cols_20, "전략기대(Q20)")
 
 # ============================================================
-# 5. 평균 변수 생성 (skipna=True)
+# 4. 평균 변수 생성
 # ============================================================
 
-# AI 활용자 변수
-df_ai["work_effect"] = df_ai[cols_7].mean(axis=1, skipna=True)
-df_ai["org_support"] = df_ai[cols_16].mean(axis=1, skipna=True)
-df_ai["motivation_passive"] = df_ai[cols_9_passive].mean(axis=1, skipna=True)
-df_ai["motivation_voluntary"] = df_ai[cols_9_voluntary].mean(axis=1, skipna=True)
-
-# 전략기대는 전체 기준
-df["strategic_expectation"] = df[cols_20].mean(axis=1, skipna=True)
+df_ai["work_effect"] = df_ai[cols_7].mean(axis=1)
+df_ai["org_support"] = df_ai[cols_16].mean(axis=1)
+df_ai["motivation_passive"] = df_ai[cols_9_passive].mean(axis=1)
+df_ai["motivation_voluntary"] = df_ai[cols_9_voluntary].mean(axis=1)
+df_ai["strategic_expectation"] = df_ai[cols_20].mean(axis=1)
 
 # ============================================================
-# 6. EFA (Raw Data 기반, Listwise)
+# 5. EFA
 # ============================================================
 
 def run_efa(df_sub, cols, n_factors, title):
     data = df_sub[cols].dropna()
-
     print("\n====================================")
     print(f"EFA - {title}")
     print(f"유효표본 수 (N) = {len(data)}")
@@ -96,49 +88,64 @@ def run_efa(df_sub, cols, n_factors, title):
     print(loadings.round(3))
     return loadings
 
-
-# 활용동기 (AI 활용자)
-run_efa(df_ai, cols_9_passive + cols_9_voluntary, 2, "활용동기 (AI 활용자)")
-
-# 업무효과 (AI 활용자)
-run_efa(df_ai, cols_7, 1, "업무효과 (AI 활용자)")
-
-# 조직지원 (AI 활용자)
-run_efa(df_ai, cols_16, 1, "조직지원 (AI 활용자)")
-
-# 전략기대 (전체 응답자 기준)
-run_efa(df_ai, cols_20, 1, "전략기대 (AI 활용자)")
-
-print("각 문항 결측 수:")
-print(df[cols_20].isna().sum())
-
-print("\n4문항 모두 응답한 사람 수:")
-print(df[cols_20].notna().all(axis=1).sum())
+run_efa(df_ai, cols_9_passive + cols_9_voluntary, 2, "활용동기")
+run_efa(df_ai, cols_7, 1, "업무효과")
+run_efa(df_ai, cols_16, 1, "조직지원")
+run_efa(df_ai, cols_20, 1, "전략기대")
 
 # ============================================================
-# 7. 회귀용 데이터 구성
-#    전략기대 응답자 + AI 활용자 교집합
+# 6. 문항별 기술통계 (왜도·첨도 포함)
 # ============================================================
 
-df_reg = df_ai.merge(
-    df[["strategic_expectation"]],
-    left_index=True,
-    right_index=True,
-    how="inner"
+print("\n====================================")
+print("문항별 기술통계 (AI 활용자)")
+print("====================================")
+
+item_desc = pd.DataFrame()
+
+for col in all_item_cols:
+    item_desc.loc[col, "mean"] = df_ai[col].mean()
+    item_desc.loc[col, "std"] = df_ai[col].std()
+    item_desc.loc[col, "min"] = df_ai[col].min()
+    item_desc.loc[col, "max"] = df_ai[col].max()
+    item_desc.loc[col, "skew"] = skew(df_ai[col])
+    item_desc.loc[col, "kurtosis"] = kurtosis(df_ai[col])
+
+print(item_desc.round(3))
+
+# ============================================================
+# 7. 구성개념 평균 기술통계
+# ============================================================
+
+print("\n====================================")
+print("구성개념 평균 기술통계 (AI 활용자)")
+print("====================================")
+
+construct_desc = (
+    df_ai[[
+        "work_effect",
+        "org_support",
+        "strategic_expectation",
+        "motivation_passive",
+        "motivation_voluntary"
+    ]]
+    .describe()
+    .T[["mean", "std", "min", "max"]]
 )
 
-df_reg = df_reg[df_reg["strategic_expectation"].notna()]
-
-print("\n회귀분석용 데이터 크기:", len(df_reg))
+print(construct_desc.round(3))
 
 # ============================================================
-# 8. 통제변수 기술통계 (AI 활용자 기준)
+# 8. 통제변수 기술통계
 # ============================================================
 
-print("\n통제변수 기술통계 (AI 활용자)")
+print("\n====================================")
+print("통제변수 기술통계 (AI 활용자)")
+print("====================================")
+
 print(
     df_ai[["gender", "rank_code", "career_code"]]
     .describe()
     .T[["mean", "std", "min", "max"]]
-    .round(2)
+    .round(3)
 )
