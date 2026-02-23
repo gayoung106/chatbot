@@ -10,7 +10,7 @@ df = pd.read_csv("chatbot_output.csv")
 # 2️ 연구에 필요한 컬럼만 선택
 # ===========================================
 cols_to_keep = (
-    ["Q3"] +
+    ["SQ1", "SQ4", "Q3"] +
     [f"Q4_{i}" for i in range(1, 10)] +           # 복수응답 (업무유형)
     [f"Q7_{i}" for i in range(1, 6)] +            # 업무효과
     [f"Q9_{i}" for i in range(1, 5)] +            # 활용동기
@@ -70,10 +70,22 @@ career_map = {
     "5년 이하": 1, "6-10년": 2, "11-20년": 3, "21-30년": 4, "31년 이상": 5,
     "6~10년": 2, "11~20년": 3, "21~30년": 4
 }
+age_map = {
+    "10대": 1, "20대": 2, "30대": 3, "40대": 4, "50대": 5, "60대 이상": 6,
+}
+organization_map = {
+    "중앙행정기관": 1, "광역지방자치단체": 2, "기초지방자치단체": 3,
+}
 
 df["gender"] = df["Q21"].map(gender_map)
 df["rank_code"] = df["Q22"].map(rank_map)
 df["career_code"] = df["Q23"].map(career_map)
+
+print(df["Q21"].unique())
+print(df["Q22"].unique())
+print(df["Q23"].unique())
+print(df["SQ4"].unique())
+print(df["SQ1"].unique())
 
 # ===========================================
 # 8️ 결측값 처리
@@ -108,3 +120,39 @@ print(" 전처리 완료!")
 print(f"전체 응답자 수: {len(df)}명, AI 경험자 수: {len(df_ai_users)}명")
 print("통제변수 및 Q4 처리 예시:")
 print(df[["gender", "rank_code", "career_code", "ai_task_count"]].head())
+
+# ===========================================
+# ⑬ 표본 특성 빈도 출력 (전체 + AI 활용자)
+# ===========================================
+
+def freq_percent(series, name, total_n):
+    freq = series.value_counts().sort_index()
+    percent = round(freq / total_n * 100, 1)
+    result = pd.DataFrame({"N": freq, "%": percent})
+    print("\n====================================")
+    print(f"{name} 분포 (N={total_n})")
+    print("====================================")
+    print(result)
+    return result
+
+
+print("\n\n###############################")
+print(" 전체 표본 특성 (N=1608)")
+print("###############################")
+
+freq_percent(df["gender"], "성별", len(df))
+freq_percent(df["rank_code"], "직급", len(df))
+freq_percent(df["career_code"], "근무연수", len(df))
+freq_percent(df["SQ1"], "연령(원본)", len(df))
+freq_percent(df["SQ4"], "소속기관(원본)", len(df))
+
+
+print("\n\n###############################")
+print(" AI 활용자 표본 특성")
+print("###############################")
+
+freq_percent(df_ai_users["gender"], "성별", len(df_ai_users))
+freq_percent(df_ai_users["rank_code"], "직급", len(df_ai_users))
+freq_percent(df_ai_users["career_code"], "근무연수", len(df_ai_users))
+freq_percent(df_ai_users["SQ1"], "연령(원본)", len(df_ai_users))
+freq_percent(df_ai_users["SQ4"], "소속기관(원본)", len(df_ai_users))
