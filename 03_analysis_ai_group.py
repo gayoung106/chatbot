@@ -94,6 +94,24 @@ run_efa(df_ai, cols_16, 1, "조직지원")
 run_efa(df_ai, cols_20, 1, "전략기대")
 
 # ============================================================
+# Harman
+# ============================================================
+all_cols = (
+    cols_9_passive + cols_9_voluntary +
+    cols_7 + cols_16 + cols_20
+)
+
+from factor_analyzer import FactorAnalyzer
+
+data = df_ai[all_cols].dropna()
+
+fa = FactorAnalyzer(n_factors=1, rotation=None)
+fa.fit(data)
+
+variance = fa.get_factor_variance()
+print("harman", variance)
+
+# ============================================================
 # 6. 문항별 기술통계 (왜도·첨도 포함)
 # ============================================================
 
