@@ -3,6 +3,8 @@ import numpy as np
 from pingouin import cronbach_alpha
 from factor_analyzer import FactorAnalyzer
 from scipy.stats import skew, kurtosis
+import matplotlib.pyplot as plt
+from factor_analyzer.factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
 
 # ============================================================
 # 1. 데이터 로드
@@ -149,3 +151,78 @@ print(
     .T[["mean", "std", "min", "max"]]
     .round(3)
 )
+
+# ============================================================
+# 9. 전체 척도 통합 EFA (수동적 동기 제외)
+# ============================================================
+
+print("\n====================================")
+print("전체 척도 통합 EFA (수동적 동기 제외)")
+print("====================================")
+
+# 수동적 동기(Q9_1, Q9_2) 제외
+efa_cols_refined = (
+    cols_9_voluntary +   # Q9_3, Q9_4
+    cols_7 +
+    cols_16 +
+    cols_20
+)
+
+efa_data = df_ai[efa_cols_refined].dropna()
+
+print(f"유효표본 수 (N) = {len(efa_data)}")
+
+# ------------------------------------------------------------
+# 9-1. KMO / Bartlett
+# ------------------------------------------------------------
+
+kmo_all, kmo_model = calculate_kmo(efa_data)
+print("\nKMO 전체값:", round(kmo_model, 3))
+
+chi_square_value, p_value = calculate_bartlett_sphericity(efa_data)
+print("Bartlett χ²:", round(chi_square_value, 3))
+print("Bartlett p-value:", p_value)
+
+# ------------------------------------------------------------
+# 9-2. 고유값 확인
+# ------------------------------------------------------------
+
+fa_test = FactorAnalyzer(rotation=None)
+fa_test.fit(efa_data)
+
+ev, _ = fa_test.get_eigenvalues()
+
+print("\n고유값(Eigenvalues)")
+for i, eigen in enumerate(ev):
+    print(f"Factor{i+1}: {round(eigen,3)}")
+
+# ------------------------------------------------------------
+# 9-3. 4요인 가정 EFA
+# ------------------------------------------------------------
+
+fa = FactorAnalyzer(n_factors=4, rotation="varimax")
+fa.fit(efa_data)
+
+loadings = pd.DataFrame(
+    fa.loadings_,
+    index=efa_cols_refined,
+    columns=[f"Factor{i+1}" for i in range(4)]
+)
+
+print("\n==============================")
+print("통합 EFA 결과 (정제 4요인)")
+print("==============================")
+print(loadings.round(3))
+
+# ------------------------------------------------------------
+# 9-4. 공통성
+# ------------------------------------------------------------
+
+communalities = pd.DataFrame(
+    fa.get_communalities(),
+    index=efa_cols_refined,
+    columns=["Communality"]
+)
+
+print("\n공통성:")
+print(communalities.round(3))
