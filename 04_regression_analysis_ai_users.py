@@ -132,3 +132,87 @@ print(f"Mean = {indirect_effects.mean():.3f}")
 print(f"95% CI = [{ci_lower:.3f}, {ci_upper:.3f}]")
 
 print("\n 매개모형 분석 완료")
+
+# ============================================================
+# 7. 강건성 검증 (Robustness Checks)
+# ============================================================
+
+print("\n\n" + "="*55)
+print("강건성 검증 (Robustness Checks)")
+print("="*55)
+
+# ------------------------------------------------------------
+# 7-1. 역인과 모델 (Reverse Causality)
+# 가설 방향: motivation → effect → expectation
+# 역인과 방향: expectation → effect → motivation
+# ------------------------------------------------------------
+
+print("\n----- 7-1. 역인과 모델 (Reverse Causality) -----")
+print("원래 모델: motivation → effect → expectation")
+print("역인과 모델: expectation → effect → motivation\n")
+
+# 역인과 Model A: effect ~ expectation (매개변수를 종속변수로)
+rev_a = smf.ols(
+    "effect ~ expectation + gender + rank_code + career_code",
+    data=df
+).fit(cov_type="HC3")
+
+# 역인과 Model B: motivation ~ expectation + effect (독립변수를 종속변수로)
+rev_b = smf.ols(
+    "motivation ~ expectation + effect + support + gender + rank_code + career_code",
+    data=df
+).fit(cov_type="HC3")
+
+print("[역인과 Model A] effect ~ expectation")
+print(f"  expectation → effect: B = {rev_a.params['expectation']:.3f}, "
+      f"p = {rev_a.pvalues['expectation']:.4f}")
+print(f"  R² = {rev_a.rsquared:.3f}")
+
+print("\n[역인과 Model B] motivation ~ expectation + effect")
+print(f"  expectation → motivation: B = {rev_b.params['expectation']:.3f}, "
+      f"p = {rev_b.pvalues['expectation']:.4f}")
+print(f"  effect → motivation:      B = {rev_b.params['effect']:.3f}, "
+      f"p = {rev_b.pvalues['effect']:.4f}")
+print(f"  R² = {rev_b.rsquared:.3f}")
+
+# 원래 모델과 비교
+print("\n[원래 모델과 비교]")
+print(f"  원래: motivation → expectation: B = {m2.params['motivation']:.3f}, "
+      f"p = {m2.pvalues['motivation']:.4f},  R² = {m2.rsquared:.3f}")
+print(f"  역인과: expectation → motivation: B = {rev_b.params['expectation']:.3f}, "
+      f"p = {rev_b.pvalues['expectation']:.4f},  R² = {rev_b.rsquared:.3f}")
+
+# ------------------------------------------------------------
+# 7-2. 통제변수 제외 모델
+# ------------------------------------------------------------
+
+print("\n----- 7-2. 통제변수 제외 모델 -----")
+
+m_no_ctrl = smf.ols(
+    "expectation ~ motivation + effect + support",
+    data=df
+).fit(cov_type="HC3")
+
+print(f"  motivation → expectation: B = {m_no_ctrl.params['motivation']:.3f}, "
+      f"p = {m_no_ctrl.pvalues['motivation']:.4f}")
+print(f"  effect → expectation:     B = {m_no_ctrl.params['effect']:.3f}, "
+      f"p = {m_no_ctrl.pvalues['effect']:.4f}")
+print(f"  support → expectation:    B = {m_no_ctrl.params['support']:.3f}, "
+      f"p = {m_no_ctrl.pvalues['support']:.4f}")
+print(f"  R² = {m_no_ctrl.rsquared:.3f}")
+print(f"\n  [원래 Model 3 비교]")
+print(f"  motivation: B = {m3.params['motivation']:.3f}, p = {m3.pvalues['motivation']:.4f}")
+print(f"  effect:     B = {m3.params['effect']:.3f}, p = {m3.pvalues['effect']:.4f}")
+print(f"  support:    B = {m3.params['support']:.3f}, p = {m3.pvalues['support']:.4f}")
+print(f"  R² = {m3.rsquared:.3f}")
+
+# ------------------------------------------------------------
+# 7-3. 강건성 요약
+# ------------------------------------------------------------
+
+print("\n\n" + "="*55)
+print("강건성 검증 요약")
+print("="*55)
+
+
+print("강건성 검증 완료.")
