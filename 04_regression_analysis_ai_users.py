@@ -6,6 +6,7 @@ from tqdm import trange
 from scipy import stats
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
+
 # ============================================================
 # 1. 데이터 로드
 # ============================================================
@@ -23,6 +24,36 @@ df["effect"] = df[[f"Q7_{i}" for i in range(1,6)]].mean(axis=1)
 df["support"] = df[[f"Q16_{i}" for i in range(1,8)]].mean(axis=1)
 df["expectation"] = df[[f"Q20_{i}" for i in range(1,5)]].mean(axis=1)
 
+# ============================================================
+# 2-1. 상관관계 분석
+# ============================================================
+
+print("\n===== Correlation Matrix =====")
+
+corr_vars = df[[
+    "expectation",
+    "motivation",
+    "effect",
+    "support",
+    "gender",
+    "rank_code",
+    "career_code"
+]]
+
+corr_matrix = corr_vars.corr()
+
+print(corr_matrix.round(3))
+
+def corr_with_pvalues(df):
+    dfcols = pd.DataFrame(columns=df.columns)
+    pvals = dfcols.transpose().join(dfcols, how='outer')
+    for r in df.columns:
+        for c in df.columns:
+            pvals[r][c] = stats.pearsonr(df[r], df[c])[1]
+    return pvals
+
+p_matrix = corr_with_pvalues(corr_vars)
+print(p_matrix)
 # ============================================================
 # 3. 위계적 회귀 (HC3 Robust)
 # ============================================================
