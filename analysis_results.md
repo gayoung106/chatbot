@@ -5,12 +5,14 @@
 ## 1. 매개변수(effect)에 미치는 영향 (Path A)
 
 ### 비표준화 계수 (Unstandardized)
+
 ```text
 AI활용동기(motivation) -> 매개변수(effect): 0.3168 (p=0.0000)
 조직지원인식(support)  -> 매개변수(effect): 0.2624 (p=0.0000)
 ```
 
 ### 표준화 계수 (Standardized Beta) - 영향력 크기 비교용
+
 ```text
 AI활용동기(motivation) -> 매개변수(effect): ß = 0.3495 (p=0.0000)
 조직지원인식(support)  -> 매개변수(effect): ß = 0.2661 (p=0.0000)
@@ -19,12 +21,14 @@ AI활용동기(motivation) -> 매개변수(effect): ß = 0.3495 (p=0.0000)
 ## 2. 종속변수(expectation)에 미치는 영향 (총효과, Total Effect)
 
 ### 비표준화 계수 (Unstandardized)
+
 ```text
 AI활용동기(motivation) -> 종속변수(expectation): 0.2501 (p=0.0000)
 조직지원인식(support)  -> 종속변수(expectation): 0.3765 (p=0.0000)
 ```
 
 ### 표준화 계수 (Standardized Beta) - 영향력 크기 비교용
+
 ```text
 AI활용동기(motivation) -> 종속변수(expectation): ß = 0.2669 (p=0.0000)
 조직지원인식(support)  -> 종속변수(expectation): ß = 0.3694 (p=0.0000)
@@ -33,12 +37,14 @@ AI활용동기(motivation) -> 종속변수(expectation): ß = 0.2669 (p=0.0000)
 ## 3. 종속변수(expectation)에 미치는 영향 (직접효과, Direct Effect - 매개변수 통제)
 
 ### 비표준화 계수 (Unstandardized)
+
 ```text
 AI활용동기(motivation) -> 종속변수(expectation): 0.1338 (p=0.0060)
 조직지원인식(support)  -> 종속변수(expectation): 0.2802 (p=0.0000)
 ```
 
 ### 표준화 계수 (Standardized Beta) - 영향력 크기 비교용
+
 ```text
 AI활용동기(motivation) -> 종속변수(expectation): ß = 0.1428 (p=0.0060)
 조직지원인식(support)  -> 종속변수(expectation): ß = 0.2748 (p=0.0000)
@@ -46,13 +52,13 @@ AI활용동기(motivation) -> 종속변수(expectation): ß = 0.1428 (p=0.0060)
 
 ## 4. 종합 결과 비교 요약표 (표준화 계수 Beta 기준)
 
-| 구분 | AI활용동기(motivation) | 조직지원인식(support) |
-|---|---|---|
-| 매개변수에 미치는 영향 | ß = 0.349 *** | ß = 0.266 *** |
-| 종속변수에 미치는 총효과 | ß = 0.267 *** | ß = 0.369 *** |
-| 종속변수에 미치는 직접효과 | ß = 0.143 ** | ß = 0.275 *** |
+| 구분                       | AI활용동기(motivation) | 조직지원인식(support) |
+| -------------------------- | ---------------------- | --------------------- |
+| 매개변수에 미치는 영향     | ß = 0.349 \*\*\*       | ß = 0.266 \*\*\*      |
+| 종속변수에 미치는 총효과   | ß = 0.267 \*\*\*       | ß = 0.369 \*\*\*      |
+| 종속변수에 미치는 직접효과 | ß = 0.143 \*\*         | ß = 0.275 \*\*\*      |
 
-> († p<.10, * p<.05, ** p<.01, *** p<.001)
+> († p<.10, \* p<.05, ** p<.01, \*** p<.001)
 
 ## 5. 상세 회귀 요약
 
@@ -70,6 +76,7 @@ rank_code      -0.0451      0.037     -1.204      0.228      -0.119       0.028
 career_code     0.0088      0.043      0.207      0.836      -0.075       0.093
 ===============================================================================
 ```
+
 </details>
 
 <details><summary>종속변수 직접효과 모형 - Path C'</summary>
@@ -87,5 +94,30 @@ rank_code      -0.0310      0.038     -0.818      0.413      -0.105       0.043
 career_code     0.0175      0.041      0.432      0.666      -0.062       0.097
 ===============================================================================
 ```
+
 </details>
 
+```mermaid
+graph LR
+    %% 스타일 깔끔하게 정의
+    classDef iv fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#000,font-weight:bold;
+    classDef med fill:#FFF8E1,stroke:#EF6C00,stroke-width:2px,color:#000,font-weight:bold;
+    classDef dv fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#000,font-weight:bold;
+    classDef ctrl fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px,stroke-dasharray: 5 5,color:#555;
+    %% 변수 노드 정의
+    IV1("[개인 요인]<br>자발적 AI 활용동기"):::iv
+    IV2("[조직 요인]<br>조직지원 인식"):::iv
+    MED("[매개 변수]<br>인식된 업무효과"):::med
+    DV("[종속 변수]<br>전략적 활용 기대"):::dv
+    CTRL("통제 변수"):::ctrl
+    %% 경로 설정
+    IV1 -->|H1a| MED
+    IV2 -->|H1b| MED
+
+    IV1 -->|H3a| DV
+    IV2 -->|H3b| DV
+
+    MED -->|H2| DV
+    CTRL -.-> DV
+
+```
