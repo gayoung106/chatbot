@@ -51,12 +51,12 @@ model.fit(df_cfa)
 stats = calc_stats(model)
 
 print("\n===== Fit Indices =====")
-print("Chi-square:", stats.chi2)
-print("df:", stats.DoF)
-print("CFI:", stats.CFI)
-print("TLI:", stats.TLI)
-print("RMSEA:", stats.RMSEA)
-print("SRMR:", stats.SRMR)
+print("Chi-square:", stats['chi2'].values[0])
+print("df:", stats['DoF'].values[0])
+print("CFI:", stats['CFI'].values[0])
+print("TLI:", stats['TLI'].values[0])
+print("RMSEA:", stats['RMSEA'].values[0])
+print("SRMR: Not natively provided by semopy")
 
 # ============================================================
 # 5. 요인적재량 출력

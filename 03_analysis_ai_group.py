@@ -24,13 +24,11 @@ print(f"비활용자: {len(df_non)}")
 # ============================================================
 
 cols_7 = [f"Q7_{i}" for i in range(1, 6)]
-cols_9_passive = ["Q9_1", "Q9_2"]
 cols_9_voluntary = ["Q9_3", "Q9_4"]
 cols_16 = [f"Q16_{i}" for i in range(1, 8)]
 cols_20 = [f"Q20_{i}" for i in range(1, 5)]
 
 all_item_cols = (
-    cols_9_passive +
     cols_9_voluntary +
     cols_7 +
     cols_20 +
@@ -53,7 +51,6 @@ print("==============================")
 
 reliability(df_ai, cols_7, "업무효과(Q7)")
 reliability(df_ai, cols_16, "조직지원(Q16)")
-reliability(df_ai, cols_9_passive, "수동적 활용동기")
 reliability(df_ai, cols_9_voluntary, "자발적 활용동기")
 reliability(df_ai, cols_20, "전략기대(Q20)")
 
@@ -63,7 +60,6 @@ reliability(df_ai, cols_20, "전략기대(Q20)")
 
 df_ai["work_effect"] = df_ai[cols_7].mean(axis=1)
 df_ai["org_support"] = df_ai[cols_16].mean(axis=1)
-df_ai["motivation_passive"] = df_ai[cols_9_passive].mean(axis=1)
 df_ai["motivation_voluntary"] = df_ai[cols_9_voluntary].mean(axis=1)
 df_ai["strategic_expectation"] = df_ai[cols_20].mean(axis=1)
 
@@ -90,7 +86,7 @@ def run_efa(df_sub, cols, n_factors, title):
     print(loadings.round(3))
     return loadings
 
-run_efa(df_ai, cols_9_passive + cols_9_voluntary, 2, "활용동기")
+run_efa(df_ai, cols_9_voluntary, 1, "활용동기")
 run_efa(df_ai, cols_7, 1, "업무효과")
 run_efa(df_ai, cols_16, 1, "조직지원")
 run_efa(df_ai, cols_20, 1, "전략기대")
@@ -99,7 +95,7 @@ run_efa(df_ai, cols_20, 1, "전략기대")
 # Harman
 # ============================================================
 all_cols = (
-    cols_9_passive + cols_9_voluntary +
+    cols_9_voluntary +
     cols_7 + cols_16 + cols_20
 )
 
@@ -146,7 +142,6 @@ construct_desc = (
         "work_effect",
         "org_support",
         "strategic_expectation",
-        "motivation_passive",
         "motivation_voluntary"
     ]]
     .describe()
@@ -171,14 +166,13 @@ print(
 )
 
 # ============================================================
-# 9. 전체 척도 통합 EFA (수동적 동기 제외)
+# 9. 전체 척도 통합 EFA
 # ============================================================
 
 print("\n====================================")
-print("전체 척도 통합 EFA (수동적 동기 제외)")
+print("전체 척도 통합 EFA")
 print("====================================")
 
-# 수동적 동기(Q9_1, Q9_2) 제외
 efa_cols_refined = (
     cols_9_voluntary +   # Q9_3, Q9_4
     cols_7 +

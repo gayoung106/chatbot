@@ -13,7 +13,7 @@ cols_to_keep = (
     ["SQ1", "SQ4", "Q3"] +
     [f"Q4_{i}" for i in range(1, 10)] +           # 복수응답 (업무유형)
     [f"Q7_{i}" for i in range(1, 6)] +            # 업무효과
-    [f"Q9_{i}" for i in range(1, 5)] +            # 활용동기
+    [f"Q9_{i}" for i in range(3, 5)] +            # 활용동기(자발적)
     [f"Q16_{i}" for i in range(1, 8)] +           # 조직지원
     [f"Q20_{i}" for i in range(1, 5)] +           # 전략기대
     ["Q21", "Q22", "Q23"]                         # 통제변수

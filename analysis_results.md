@@ -89,30 +89,3 @@ career_code     0.0175      0.041      0.432      0.666      -0.062       0.097
 ```
 </details>
 
-```mermaid
-graph LR
-    %% 스타일 정의
-    classDef iv fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef med fill:#fff9c4,stroke:#f57f17,stroke-width:2px;
-    classDef dv fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef ctrl fill:#f5f5f5,stroke:#9e9e9e,stroke-width:1px,stroke-dasharray: 5 5;
-    %% 노드 정의
-    IV1["자발적 AI 활용동기<br>(Voluntary AI Motivation)<br><b>[개인 요인]</b>"]:::iv
-    IV2["조직지원 인식<br>(Organizational Support)<br><b>[조직 요인]</b>"]:::iv
-    
-    MED["인식된 업무효과<br>(Perceived Work Effectiveness)"]:::med
-    
-    DV["전략적 활용 기대<br>(Strategic Expectation)"]:::dv
-    
-    CTRL["통제변수"]:::ctrl
-    %% 경로 설정 (독립 -> 매개)
-    IV1 -->|H1a| MED
-    IV2 -->|H1b| MED
-    %% 경로 설정 (매개 -> 종속)
-    MED -->|H2| DV
-    %% 경로 설정 (독립 -> 종속)
-    IV1 -->|H3a| DV
-    IV2 -->|H3b| DV
-    %% 통제변수
-    CTRL -.-> DV
-```
