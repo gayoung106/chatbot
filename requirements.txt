@@ -9,3 +9,4 @@ matplotlib==3.8.4
 seaborn==0.13.2
 pingouin==0.5.4
 semopy==2.3.9
+tqdm==4.67.3
