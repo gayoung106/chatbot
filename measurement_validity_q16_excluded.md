@@ -9,34 +9,36 @@
 | --- | --- | ---: | ---: |
 | work_effect | Q7_1, Q7_2, Q7_3, Q7_4, Q7_5 | 0.604 | 0.884 |
 | org_support | Q16_1, Q16_2, Q16_3, Q16_4, Q16_5, Q16_6, Q16_7 | 0.442 | 0.836 |
-| strategic_expectation | Q20_1, Q20_2, Q20_3, Q20_4 | 0.374 | 0.699 |
+| strategic_expectation | Q20_2, Q20_3, Q20_4 | 0.471 | 0.719 |
 | motivation_voluntary | Q9_3, Q9_4 | 0.706 | 0.827 |
 
 ### Fornell-Larcker
 ```text
-                       work_effect  org_support  strategic_expectation  motivation_voluntary
-work_effect                  1.000        0.380                  0.536                 0.432
-org_support                  0.380        1.000                  0.459                 0.287
-strategic_expectation        0.536        0.459                  1.000                 0.378
-motivation_voluntary         0.432        0.287                  0.378                 1.000
+                       work_effect  ...  motivation_voluntary
+work_effect                  1.000  ...                 0.432
+org_support                  0.380  ...                 0.287
+strategic_expectation        0.456  ...                 0.274
+motivation_voluntary         0.432  ...                 1.000
+
+[4 rows x 4 columns]
 ```
 
 | 구성개념 | sqrt(AVE) |
 | --- | ---: |
 | work_effect | 0.777 |
 | org_support | 0.665 |
-| strategic_expectation | 0.612 |
+| strategic_expectation | 0.687 |
 | motivation_voluntary | 0.840 |
 
 ### HTMT
 | 구성개념 쌍 | HTMT |
 | --- | ---: |
 | work_effect - org_support | 0.475 |
-| work_effect - strategic_expectation | 0.715 |
+| work_effect - strategic_expectation | 0.594 |
 | work_effect - motivation_voluntary | 0.510 |
-| org_support - strategic_expectation | 0.653 |
+| org_support - strategic_expectation | 0.620 |
 | org_support - motivation_voluntary | 0.388 |
-| strategic_expectation - motivation_voluntary | 0.545 |
+| strategic_expectation - motivation_voluntary | 0.376 |
 
 ---
 
@@ -47,34 +49,36 @@ motivation_voluntary         0.432        0.287                  0.378          
 | --- | --- | ---: | ---: |
 | work_effect | Q7_1, Q7_2, Q7_3, Q7_4, Q7_5 | 0.604 | 0.884 |
 | org_support | Q16_1, Q16_2, Q16_3, Q16_4, Q16_5, Q16_6 | 0.507 | 0.855 |
-| strategic_expectation | Q20_1, Q20_2, Q20_3, Q20_4 | 0.374 | 0.699 |
+| strategic_expectation | Q20_2, Q20_3, Q20_4 | 0.471 | 0.719 |
 | motivation_voluntary | Q9_3, Q9_4 | 0.706 | 0.827 |
 
 ### Fornell-Larcker
 ```text
-                       work_effect  org_support  strategic_expectation  motivation_voluntary
-work_effect                  1.000        0.323                  0.536                 0.432
-org_support                  0.323        1.000                  0.403                 0.211
-strategic_expectation        0.536        0.403                  1.000                 0.378
-motivation_voluntary         0.432        0.211                  0.378                 1.000
+                       work_effect  ...  motivation_voluntary
+work_effect                  1.000  ...                 0.432
+org_support                  0.323  ...                 0.211
+strategic_expectation        0.456  ...                 0.274
+motivation_voluntary         0.432  ...                 1.000
+
+[4 rows x 4 columns]
 ```
 
 | 구성개념 | sqrt(AVE) |
 | --- | ---: |
 | work_effect | 0.777 |
 | org_support | 0.712 |
-| strategic_expectation | 0.612 |
+| strategic_expectation | 0.687 |
 | motivation_voluntary | 0.840 |
 
 ### HTMT
 | 구성개념 쌍 | HTMT |
 | --- | ---: |
 | work_effect - org_support | 0.393 |
-| work_effect - strategic_expectation | 0.715 |
+| work_effect - strategic_expectation | 0.594 |
 | work_effect - motivation_voluntary | 0.510 |
-| org_support - strategic_expectation | 0.552 |
+| org_support - strategic_expectation | 0.561 |
 | org_support - motivation_voluntary | 0.274 |
-| strategic_expectation - motivation_voluntary | 0.545 |
+| strategic_expectation - motivation_voluntary | 0.376 |
 
 ---
 
