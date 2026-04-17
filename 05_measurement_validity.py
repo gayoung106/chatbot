@@ -1,22 +1,16 @@
-# ============================================================
-# Measurement Validity Analysis
-# AVE, CR, Fornell-Larcker, HTMT
-# ============================================================
-
 import pandas as pd
 import numpy as np
+from itertools import combinations
 from factor_analyzer import FactorAnalyzer
 
-# ------------------------------------------------------------
-# 1. 데이터 로드
-# ------------------------------------------------------------
+# ============================================================
+# Measurement Validity Analysis
+# - Convergent validity: AVE, CR
+# - Discriminant validity: Fornell-Larcker, HTMT
+# ============================================================
 
 df = pd.read_csv("chatbot_output_selected_preprocessed.csv")
 df_ai = df[df["Q3"] == 1].copy()
-
-# ------------------------------------------------------------
-# 2. 문항 정의
-# ------------------------------------------------------------
 
 cols_7 = [f"Q7_{i}" for i in range(1, 6)]
 cols_16 = [f"Q16_{i}" for i in range(1, 8)]
@@ -27,85 +21,112 @@ construct_dict = {
     "work_effect": cols_7,
     "org_support": cols_16,
     "strategic_expectation": cols_20,
-    "motivation_voluntary": cols_9_voluntary
+    "motivation_voluntary": cols_9_voluntary,
 }
 
-# ------------------------------------------------------------
-# 3. AVE, CR 계산 함수
-# ------------------------------------------------------------
 
 def compute_ave_cr(data, cols, name):
+    valid = data[cols].dropna()
     fa = FactorAnalyzer(n_factors=1, rotation=None)
-    fa.fit(data[cols].dropna())
+    fa.fit(valid)
 
     loadings = fa.loadings_.flatten()
     squared = loadings ** 2
 
-    ave = np.mean(squared)
-
-    cr = (np.sum(loadings) ** 2) / (
-        (np.sum(loadings) ** 2) + np.sum(1 - squared)
-    )
+    ave = float(np.mean(squared))
+    cr = float((np.sum(loadings) ** 2) / ((np.sum(loadings) ** 2) + np.sum(1 - squared)))
 
     print(f"\n[{name}]")
-    print(f"Loadings: {np.round(loadings,3)}")
+    print(f"Loadings: {np.round(loadings, 3)}")
     print(f"AVE = {ave:.3f}")
     print(f"CR  = {cr:.3f}")
 
     return ave
 
-# ------------------------------------------------------------
-# 4. 수렴타당도
-# ------------------------------------------------------------
+
+def mean_abs_interitem_corr(data, cols):
+    """Average absolute inter-item correlation within a construct."""
+    corr_values = []
+    for col_a, col_b in combinations(cols, 2):
+        pair = data[[col_a, col_b]].dropna()
+        if len(pair) == 0:
+            continue
+        corr_values.append(abs(pair[col_a].corr(pair[col_b])))
+    return float(np.mean(corr_values)) if corr_values else np.nan
+
+
+def spearman_brown_from_r(r_value):
+    """Spearman-Brown coefficient for a two-item scale."""
+    return float((2 * r_value) / (1 + r_value))
+
+
+def compute_htmt(data, cols_a, cols_b):
+    """
+    HTMT based on item-level correlations.
+    Numerator: mean absolute heterotrait-heteromethod correlations.
+    Denominator: geometric mean of within-construct monotrait correlations.
+    """
+    heterotrait = []
+    for col_a in cols_a:
+        for col_b in cols_b:
+            pair = data[[col_a, col_b]].dropna()
+            if len(pair) == 0:
+                continue
+            heterotrait.append(abs(pair[col_a].corr(pair[col_b])))
+
+    mono_a = mean_abs_interitem_corr(data, cols_a)
+    mono_b = mean_abs_interitem_corr(data, cols_b)
+
+    if not heterotrait or np.isnan(mono_a) or np.isnan(mono_b) or mono_a <= 0 or mono_b <= 0:
+        return np.nan
+
+    return float(np.mean(heterotrait) / np.sqrt(mono_a * mono_b))
+
 
 print("===================================")
 print("Convergent Validity (AVE & CR)")
 print("===================================")
 
 ave_values = {}
-
 for name, cols in construct_dict.items():
     ave_values[name] = compute_ave_cr(df_ai, cols, name)
 
-# ------------------------------------------------------------
-# 5. 평균 변수 생성
-# ------------------------------------------------------------
+pair = df_ai[cols_9_voluntary].dropna()
+if len(pair) > 0:
+    voluntary_r = pair[cols_9_voluntary[0]].corr(pair[cols_9_voluntary[1]])
+    sb_coef = spearman_brown_from_r(voluntary_r)
+    print("\n[motivation_voluntary - Two-item reliability check]")
+    print(f"Inter-item correlation = {voluntary_r:.3f}")
+    print(f"Spearman-Brown coefficient = {sb_coef:.3f}")
+    print("Note: motivation_voluntary uses two items, so interpret alpha/CR with caution.")
 
 for name, cols in construct_dict.items():
     df_ai[name] = df_ai[cols].mean(axis=1)
-
-# ------------------------------------------------------------
-# 6. Fornell-Larcker 판별타당도
-# ------------------------------------------------------------
 
 print("\n===================================")
 print("Discriminant Validity (Fornell-Larcker)")
 print("===================================")
 
 construct_corr = df_ai[list(construct_dict.keys())].corr()
-sqrt_ave = {k: np.sqrt(v) for k, v in ave_values.items()}
+sqrt_ave = {key: np.sqrt(value) for key, value in ave_values.items()}
 
 print("\nCorrelation Matrix")
 print(construct_corr.round(3))
 
-print("\n√AVE Values")
-for k, v in sqrt_ave.items():
-    print(f"{k}: {v:.3f}")
+print("\nSqrt(AVE) Values")
+for key, value in sqrt_ave.items():
+    print(f"{key}: {value:.3f}")
 
-print("\nCriterion: √AVE > Inter-construct correlations")
-
-# ------------------------------------------------------------
-# 7. HTMT (간단 근사)
-# ------------------------------------------------------------
+print("\nCriterion: sqrt(AVE) should exceed inter-construct correlations.")
 
 print("\n===================================")
-print("HTMT (Approximation)")
+print("HTMT")
 print("===================================")
 
-for i in construct_dict.keys():
-    for j in construct_dict.keys():
-        if i < j:
-            val = abs(df_ai[i].corr(df_ai[j]))
-            print(f"{i} - {j}: {val:.3f}")
+construct_names = list(construct_dict.keys())
+for idx, construct_a in enumerate(construct_names):
+    for construct_b in construct_names[idx + 1:]:
+        htmt_value = compute_htmt(df_ai, construct_dict[construct_a], construct_dict[construct_b])
+        print(f"{construct_a} - {construct_b}: {htmt_value:.3f}")
 
 print("\nCriterion: HTMT < .85")
