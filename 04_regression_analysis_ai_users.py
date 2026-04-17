@@ -4,6 +4,7 @@ import statsmodels.api as sm
 import numpy as np
 from tqdm import trange
 from scipy import stats
+from scipy.stats import bootstrap
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
@@ -138,30 +139,36 @@ print(f"Sobel Z = {sobel:.3f}, p = {p_sobel:.5f}")
 # ============================================================
 
 N_BOOT = 5000
-indirect_effects = []
 
-for _ in trange(N_BOOT):
-    sample = df.sample(len(df), replace=True)
 
-    # Use the same covariate structure as the main mediation models.
-    a = smf.ols(
+def indirect_effect_stat(sample_indices):
+    sample = df.iloc[np.asarray(sample_indices, dtype=int)]
+    a_coef = smf.ols(
         "effect ~ motivation + gender + rank_code + career_code",
         data=sample
     ).fit().params["motivation"]
-
-    b = smf.ols(
+    b_coef = smf.ols(
         "expectation ~ motivation + effect + support + gender + rank_code + career_code",
         data=sample
     ).fit().params["effect"]
+    return a_coef * b_coef
 
-    indirect_effects.append(a * b)
+bca_result = bootstrap(
+    (np.arange(len(df)),),
+    indirect_effect_stat,
+    vectorized=False,
+    n_resamples=N_BOOT,
+    method="BCa",
+    confidence_level=0.95,
+    random_state=42,
+)
+ci_lower = float(bca_result.confidence_interval.low)
+ci_upper = float(bca_result.confidence_interval.high)
+indirect_point = a * b  # 원본 표본 점 추정치
 
-indirect_effects = np.array(indirect_effects)
-ci_lower, ci_upper = np.percentile(indirect_effects, [2.5, 97.5])
-
-print("\nBootstrapped Indirect Effect")
-print(f"Mean = {indirect_effects.mean():.3f}")
-print(f"95% CI = [{ci_lower:.3f}, {ci_upper:.3f}]")
+print("\nBootstrapped Indirect Effect (BCa)")
+print(f"Point Estimate (a×b) = {indirect_point:.3f}")
+print(f"95% BCa CI = [{ci_lower:.3f}, {ci_upper:.3f}]")
 
 print("\n 매개모형 분석 완료")
 
