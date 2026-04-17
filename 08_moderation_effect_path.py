@@ -49,8 +49,8 @@ print(f"AI 활용자 수: {len(df)}명")
 
 df["motivation"]  = df[["Q9_3", "Q9_4"]].mean(axis=1)
 df["effect"]      = df[[f"Q7_{i}" for i in range(1, 6)]].mean(axis=1)
-df["support"]     = df[[f"Q16_{i}" for i in range(1, 8)]].mean(axis=1)
-df["expectation"] = df[[f"Q20_{i}" for i in range(1, 5)]].mean(axis=1)
+df["support"]     = df[[f"Q16_{i}" for i in range(1, 7)]].mean(axis=1)  # Q16_7 제외: 개인 관심 문항, motivation과 중첩
+df["expectation"] = df[[f"Q20_{i}" for i in range(2, 5)]].mean(axis=1)  # Q20_1 제외: 업무효과와 개념 중첩
 
 # 평균 중심화
 df["motivation_c"] = df["motivation"] - df["motivation"].mean()

@@ -16,8 +16,8 @@ df_ai = df[df["Q3"] == 1].copy()
 
 cols_9_voluntary = ["Q9_3", "Q9_4"]
 cols_7 = [f"Q7_{i}" for i in range(1, 6)]
-cols_16 = [f"Q16_{i}" for i in range(1, 8)]
-cols_20 = [f"Q20_{i}" for i in range(1, 5)]
+cols_16 = [f"Q16_{i}" for i in range(1, 7)]  # Q16_7 제외: 개인 관심 문항, motivation과 중첩
+cols_20 = [f"Q20_{i}" for i in range(2, 5)]  # Q20_1 제외: 업무효과와 개념 중첩
 
 efa_cols_refined = (
     cols_9_voluntary +
@@ -37,8 +37,8 @@ print(f"CFA 유효표본 수: {len(df_cfa)}")
 model_desc = """
 Voluntary =~ Q9_3 + Q9_4
 WorkEffect =~ Q7_1 + Q7_2 + Q7_3 + Q7_4 + Q7_5
-OrgSupport =~ Q16_1 + Q16_2 + Q16_3 + Q16_4 + Q16_5 + Q16_6 + Q16_7
-Strategic =~ Q20_1 + Q20_2 + Q20_3 + Q20_4
+OrgSupport =~ Q16_1 + Q16_2 + Q16_3 + Q16_4 + Q16_5 + Q16_6
+Strategic =~ Q20_2 + Q20_3 + Q20_4
 """
 
 model = Model(model_desc)

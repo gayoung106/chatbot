@@ -15,11 +15,13 @@ df = df[df["Q3"] == 1].copy()
 # ── 변수 생성 ────────────────────────────────────────────
 df["motivation"]   = df[["Q9_3", "Q9_4"]].mean(axis=1)
 df["effect"]       = df[[f"Q7_{i}" for i in range(1, 6)]].mean(axis=1)
-df["expectation"]  = df[[f"Q20_{i}" for i in range(1, 5)]].mean(axis=1)
+df["expectation"]  = df[[f"Q20_{i}" for i in range(2, 5)]].mean(axis=1)  # Q20_1 제외: 업무효과와 개념 중첩
 
-# POS 두 가지 버전
-df["support_full"] = df[[f"Q16_{i}" for i in range(1, 8)]].mean(axis=1)   # Q16_1~7 (원래)
-df["support_ex"]   = df[[f"Q16_{i}" for i in range(1, 7)]].mean(axis=1)   # Q16_1~6 (Q16_7 제외)
+# 강건성 비교: Q16_7 포함(full) vs 제외(ex, 본 분석 채택)
+# Q16_7("I am interested in using generative AI for my work")은 개인 관심 문항으로
+# 조직지원 구성개념 오염 및 motivation과의 중첩으로 인해 본 분석에서 제외함
+df["support_full"] = df[[f"Q16_{i}" for i in range(1, 8)]].mean(axis=1)   # Q16_1~7 (강건성 비교용)
+df["support_ex"]   = df[[f"Q16_{i}" for i in range(1, 7)]].mean(axis=1)   # Q16_1~6 (본 분석 채택)
 
 df = df.dropna(subset=["motivation", "effect", "expectation",
                         "support_full", "support_ex",

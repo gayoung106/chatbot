@@ -13,8 +13,8 @@ df = pd.read_csv("chatbot_output_selected_preprocessed.csv")
 df_ai = df[df["Q3"] == 1].copy()
 
 cols_7 = [f"Q7_{i}" for i in range(1, 6)]
-cols_16 = [f"Q16_{i}" for i in range(1, 8)]
-cols_20 = [f"Q20_{i}" for i in range(1, 5)]
+cols_16 = [f"Q16_{i}" for i in range(1, 7)]  # Q16_7 제외: 개인 관심 문항, motivation과 중첩
+cols_20 = [f"Q20_{i}" for i in range(2, 5)]  # Q20_1 제외: 업무효과(매개변수)와 개념 중첩
 cols_9_voluntary = ["Q9_3", "Q9_4"]
 
 construct_dict = {

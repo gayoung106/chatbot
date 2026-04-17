@@ -25,8 +25,8 @@ print(f"비활용자: {len(df_non)}")
 
 cols_7 = [f"Q7_{i}" for i in range(1, 6)]
 cols_9_voluntary = ["Q9_3", "Q9_4"]
-cols_16 = [f"Q16_{i}" for i in range(1, 8)]
-cols_20 = [f"Q20_{i}" for i in range(1, 5)]
+cols_16 = [f"Q16_{i}" for i in range(1, 7)]  # Q16_7 제외: 개인 관심 측정 문항으로 조직지원 구성개념 오염 + motivation과 중첩
+cols_20 = [f"Q20_{i}" for i in range(2, 5)]  # Q20_1 제외: 업무효과(매개변수)와 개념 중첩
 
 all_item_cols = (
     cols_9_voluntary +

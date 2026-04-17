@@ -29,8 +29,8 @@ print(f"AI 활용자 수: {len(df_ai)}명\n")
 
 cols_motivation = ["Q9_3", "Q9_4"]
 cols_effect     = [f"Q7_{i}" for i in range(1, 6)]
-cols_support    = [f"Q16_{i}" for i in range(1, 8)]
-cols_strategic  = [f"Q20_{i}" for i in range(1, 5)]
+cols_support    = [f"Q16_{i}" for i in range(1, 7)]  # Q16_7 제외: 개인 관심 문항, motivation과 중첩
+cols_strategic  = [f"Q20_{i}" for i in range(2, 5)]  # Q20_1 제외: 업무효과와 개념 중첩
 
 construct_dict = {
     "Voluntary Motivation (motivation)":     cols_motivation,
@@ -287,15 +287,13 @@ def run_efa_2factor(data_cols, label, df_sub):
         total_var = d.sum(axis=1).var(ddof=1)
         return (k_sub / (k_sub - 1)) * (1 - item_var / total_var)
 
-    # Factor1: Q20_1, Q20_2 / Factor2: Q20_3, Q20_4 (이론 기반 분류)
-    alpha_f1 = cronbach_alpha_simple(["Q20_1", "Q20_2"])
+    # Q20_1 제외 후 3문항(Q20_2~4)만 남아 2요인 분석 불가 → 단일척도로 처리
     alpha_f2 = cronbach_alpha_simple(["Q20_3", "Q20_4"])
-
     print(f"\n하위 척도 신뢰도 (Cronbach's α):")
-    print(f"  Factor1 (Q20_1, Q20_2 — 지원·확산 기대): α = {alpha_f1:.3f}")
+    print(f"  Note: Q20_1 제외로 3문항 구조. 2요인 하위 분류 생략.")
     print(f"  Factor2 (Q20_3, Q20_4 — 대체·위임 기대): α = {alpha_f2:.3f}")
 
-    return loadings_df, var_explained, alpha_f1, alpha_f2
+    return loadings_df, var_explained, None, alpha_f2
 
 
 efa_loadings, var_exp, a1, a2 = run_efa_2factor(cols_strategic, "전략기대(Q20)", df_ai)

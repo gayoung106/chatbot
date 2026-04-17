@@ -39,8 +39,8 @@ print(f"AI 활용자 수: {len(df)}명")
 items = (
     ["Q9_3", "Q9_4"]                        # Voluntary Motivation
     + [f"Q7_{i}" for i in range(1, 6)]      # Perceived Work Effectiveness
-    + [f"Q16_{i}" for i in range(1, 8)]     # Perceived Organizational Support
-    + [f"Q20_{i}" for i in range(1, 5)]     # Strategic Utilization Expectations
+    + [f"Q16_{i}" for i in range(1, 7)]     # Perceived Organizational Support (Q16_7 제외)
+    + [f"Q20_{i}" for i in range(2, 5)]     # Strategic Utilization Expectations (Q20_1 제외)
 )
 
 data = df[items].dropna()
@@ -48,8 +48,8 @@ n_items = len(items)
 print(f"\n총 측정 문항 수: {n_items}개")
 print(f"  - Voluntary Motivation:       Q9_3, Q9_4  (2문항)")
 print(f"  - Work Effectiveness:         Q7_1~Q7_5  (5문항)")
-print(f"  - Organizational Support:     Q16_1~Q16_7 (7문항)")
-print(f"  - Strategic Expectations:     Q20_1~Q20_4 (4문항)")
+print(f"  - Organizational Support:     Q16_1~Q16_6 (6문항, Q16_7 제외)")
+print(f"  - Strategic Expectations:     Q20_2~Q20_4 (3문항, Q20_1 제외)")
 
 # ============================================================
 # 3. Harman's Single Factor Test
