@@ -143,13 +143,14 @@ indirect_effects = []
 for _ in trange(N_BOOT):
     sample = df.sample(len(df), replace=True)
 
+    # Use the same covariate structure as the main mediation models.
     a = smf.ols(
-        "effect ~ motivation",
+        "effect ~ motivation + gender + rank_code + career_code",
         data=sample
     ).fit().params["motivation"]
 
     b = smf.ols(
-        "expectation ~ motivation + effect + support",
+        "expectation ~ motivation + effect + support + gender + rank_code + career_code",
         data=sample
     ).fit().params["effect"]
 

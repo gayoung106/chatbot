@@ -47,8 +47,15 @@ print("Bootstrap 진행 중...", file=sys.__stdout__)
 
 for _ in trange(N_BOOT, file=sys.__stdout__):
     s = df.sample(len(df), replace=True)
-    a = smf.ols("effect ~ motivation + support", data=s).fit().params["support"]
-    b = smf.ols("expectation ~ motivation + support + effect", data=s).fit().params["effect"]
+    # Match the bootstrap specification to the reported regression models.
+    a = smf.ols(
+        "effect ~ motivation + support + gender + rank_code + career_code",
+        data=s
+    ).fit().params["support"]
+    b = smf.ols(
+        "expectation ~ motivation + support + effect + gender + rank_code + career_code",
+        data=s
+    ).fit().params["effect"]
     indirect_sup.append(a * b)
 
 arr = np.array(indirect_sup)
