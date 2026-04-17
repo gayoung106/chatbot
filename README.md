@@ -77,6 +77,12 @@
 10. `15_compare_ai_users_nonusers.py`
    AI 활용자와 비활용자의 표본 특성을 비교하여 표본 선택편의 우려를 점검하기 위한 기초 비교표를 생성한다.
 
+11. `16_ai_use_selection_model.py`
+   AI 활용 여부를 종속변수로 한 로지스틱 회귀모형을 통해 표본 선택 과정과 자기선택 가능성을 보조적으로 점검한다.
+
+12. `17_measurement_validity_q16_excluded.py`
+   조직지원 척도에서 `Q16_7` 포함 여부에 따른 AVE, CR, Fornell-Larcker, HTMT 변화를 비교하여 측정타당성의 강건성을 점검한다.
+
 ## 전처리 세부 내용
 
 `02_preprocessed.py`에서는 다음 작업을 수행한다.
@@ -159,6 +165,8 @@
 - `robustness_q16_7_results.md`
 - `bootstrap_support_indirect.md`
 - `sample_group_comparison.md`
+- `ai_use_selection_model.md`
+- `measurement_validity_q16_excluded.md`
 - `test_passive_results.txt`
 
 이 파일들은 본문 표 작성, 부록 정리, 결과문장 초안 작성에 참고할 수 있는 산출물이다.
@@ -208,6 +216,8 @@ python 12_compare_two_ivs.py
 python 13_robustness_q16_7.py
 python 14_bootstrap_support.py
 python 15_compare_ai_users_nonusers.py
+python 16_ai_use_selection_model.py
+python 17_measurement_validity_q16_excluded.py
 ```
 
 `11_support_motivation.py`는 대안모형 검토가 필요할 때 선택적으로 실행하면 된다.
@@ -218,8 +228,9 @@ python 15_compare_ai_users_nonusers.py
 
 - 연구방법: `01`, `02`, `03`, `04`, `09`
 - 표본 비교표: `15`
+- 선택모형 보조분석: `16`
 - 연구결과: `03`, `04`
-- 보조분석 또는 부록: `11`, `12`, `13`, `14`
+- 보조분석 또는 부록: `11`, `12`, `13`, `14`, `17`
 
 다만 두 독립변수 비교 결과를 본문에서 강조하려면 `12`를 결과 본문에 포함할 수 있다.
 
