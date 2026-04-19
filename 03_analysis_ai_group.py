@@ -1,0 +1,252 @@
+import pandas as pd
+import numpy as np
+from pingouin import cronbach_alpha
+from factor_analyzer import FactorAnalyzer
+from scipy.stats import skew, kurtosis
+import matplotlib.pyplot as plt
+from factor_analyzer.factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
+
+from result_utils import markdown_output
+
+# ============================================================
+# 1. 데이터 로드
+# ============================================================
+
+df = pd.read_csv("chatbot_output_selected_preprocessed.csv")
+
+df_ai = df[df["Q3"] == 1].copy()
+df_non = df[df["Q3"] == 0].copy()
+
+# ============================================================
+# 2. 문항 정의
+# ============================================================
+
+cols_7 = [f"Q7_{i}" for i in range(1, 6)]
+cols_9_voluntary = ["Q9_3", "Q9_4"]
+cols_16 = [f"Q16_{i}" for i in range(1, 7)]  # Q16_7 제외: 개인 관심 측정 문항으로 조직지원 구성개념 오염 + motivation과 중첩
+cols_20 = [f"Q20_{i}" for i in range(2, 5)]  # Q20_1 제외: 업무효과(매개변수)와 개념 중첩
+
+all_item_cols = (
+    cols_9_voluntary +
+    cols_7 +
+    cols_20 +
+    cols_16
+)
+
+# ============================================================
+# 3. 신뢰도 분석
+# ============================================================
+
+def reliability(df_sub, cols, label):
+    data = df_sub[cols].dropna()
+    alpha = cronbach_alpha(data)[0]
+    print(f"{label} (N={len(data)}): {alpha:.3f}")
+    return alpha
+
+with markdown_output("03_analysis_ai_group.md") as result_path:
+    print("# 03 AI 활용자 집단 기초분석\n")
+    print(f"- 전체 응답자 수: {len(df)}")
+    print(f"- AI 활용자 수: {len(df_ai)}")
+    print(f"- AI 비활용자 수: {len(df_non)}\n")
+
+    print("\n==============================")
+    print("신뢰도 분석 (AI 활용자)")
+    print("==============================")
+
+    reliability(df_ai, cols_7, "업무효과(Q7)")
+    reliability(df_ai, cols_16, "조직지원(Q16)")
+    reliability(df_ai, cols_9_voluntary, "자발적 활용동기")
+    reliability(df_ai, cols_20, "전략기대(Q20)")
+
+    # ============================================================
+    # 4. 평균 변수 생성
+    # ============================================================
+
+    df_ai["work_effect"] = df_ai[cols_7].mean(axis=1)
+    df_ai["org_support"] = df_ai[cols_16].mean(axis=1)
+    df_ai["motivation_voluntary"] = df_ai[cols_9_voluntary].mean(axis=1)
+    df_ai["strategic_expectation"] = df_ai[cols_20].mean(axis=1)
+
+# ============================================================
+# 5. EFA
+# ============================================================
+
+def run_efa(df_sub, cols, n_factors, title):
+    data = df_sub[cols].dropna()
+    print("\n====================================")
+    print(f"EFA - {title}")
+    print(f"유효표본 수 (N) = {len(data)}")
+    print("====================================")
+
+    fa = FactorAnalyzer(n_factors=n_factors, rotation="varimax")
+    fa.fit(data)
+
+    loadings = pd.DataFrame(
+        fa.loadings_,
+        index=cols,
+        columns=[f"Factor{i+1}" for i in range(n_factors)]
+    )
+
+    print(loadings.round(3))
+    return loadings
+
+    run_efa(df_ai, cols_9_voluntary, 1, "활용동기")
+    run_efa(df_ai, cols_7, 1, "업무효과")
+    run_efa(df_ai, cols_16, 1, "조직지원")
+    run_efa(df_ai, cols_20, 1, "전략기대")
+
+# ============================================================
+# Harman
+# ============================================================
+    all_cols = (
+        cols_9_voluntary +
+        cols_7 + cols_16 + cols_20
+    )
+
+    from factor_analyzer import FactorAnalyzer
+
+    data = df_ai[all_cols].dropna()
+
+    fa = FactorAnalyzer(n_factors=1, rotation=None)
+    fa.fit(data)
+
+    variance = fa.get_factor_variance()
+    print("harman", variance)
+
+# ============================================================
+# 6. 문항별 기술통계 (왜도·첨도 포함)
+# ============================================================
+
+    print("\n====================================")
+    print("문항별 기술통계 (AI 활용자)")
+    print("====================================")
+
+    item_desc = pd.DataFrame()
+
+    for col in all_item_cols:
+        item_desc.loc[col, "mean"] = df_ai[col].mean()
+        item_desc.loc[col, "std"] = df_ai[col].std()
+        item_desc.loc[col, "min"] = df_ai[col].min()
+        item_desc.loc[col, "max"] = df_ai[col].max()
+        item_desc.loc[col, "skew"] = skew(df_ai[col])
+        item_desc.loc[col, "kurtosis"] = kurtosis(df_ai[col])
+
+    print(item_desc.round(3))
+
+# ============================================================
+# 7. 구성개념 평균 기술통계
+# ============================================================
+
+    print("\n====================================")
+    print("구성개념 평균 기술통계 (AI 활용자)")
+    print("====================================")
+
+    construct_desc = (
+        df_ai[[
+            "work_effect",
+            "org_support",
+            "strategic_expectation",
+            "motivation_voluntary"
+        ]]
+        .describe()
+        .T[["mean", "std", "min", "max"]]
+    )
+
+    print(construct_desc.round(3))
+
+# ============================================================
+# 8. 통제변수 기술통계
+# ============================================================
+
+    print("\n====================================")
+    print("통제변수 기술통계 (AI 활용자)")
+    print("====================================")
+
+    print(
+        df_ai[["gender", "rank_code", "career_code"]]
+        .describe()
+        .T[["mean", "std", "min", "max"]]
+        .round(3)
+    )
+
+# ============================================================
+# 9. 전체 척도 통합 EFA
+# ============================================================
+
+    print("\n====================================")
+    print("전체 척도 통합 EFA")
+    print("====================================")
+
+    efa_cols_refined = (
+        cols_9_voluntary +   # Q9_3, Q9_4
+        cols_7 +
+        cols_16 +
+        cols_20
+    )
+
+    efa_data = df_ai[efa_cols_refined].dropna()
+
+    print(f"유효표본 수 (N) = {len(efa_data)}")
+
+# ------------------------------------------------------------
+# 9-1. KMO / Bartlett
+# ------------------------------------------------------------
+
+    kmo_all, kmo_model = calculate_kmo(efa_data)
+    print("\nKMO 전체값:", round(kmo_model, 3))
+
+    chi_square_value, p_value = calculate_bartlett_sphericity(efa_data)
+    print("Bartlett χ²:", round(chi_square_value, 3))
+    print("Bartlett p-value:", p_value)
+
+# ------------------------------------------------------------
+# 9-2. 고유값 확인
+# ------------------------------------------------------------
+
+    fa_test = FactorAnalyzer(rotation=None)
+    fa_test.fit(efa_data)
+
+    ev, _ = fa_test.get_eigenvalues()
+
+    print("\n고유값(Eigenvalues)")
+    for i, eigen in enumerate(ev):
+        print(f"Factor{i+1}: {round(eigen,3)}")
+
+# ------------------------------------------------------------
+# 9-3. 4요인 가정 EFA
+# ------------------------------------------------------------
+
+    fa = FactorAnalyzer(n_factors=4, rotation="varimax")
+    fa.fit(efa_data)
+
+    loadings = pd.DataFrame(
+        fa.loadings_,
+        index=efa_cols_refined,
+        columns=[f"Factor{i+1}" for i in range(4)]
+    )
+
+    print("\n==============================")
+    print("통합 EFA 결과 (정제 4요인)")
+    print("==============================")
+    print(loadings.round(3))
+
+# ------------------------------------------------------------
+# 9-4. 공통성
+# ------------------------------------------------------------
+
+    communalities = pd.DataFrame(
+        fa.get_communalities(),
+        index=efa_cols_refined,
+        columns=["Communality"]
+    )
+
+    print("\n공통성:")
+    print(communalities.round(3))
+
+    print("\n## 주요 해석\n")
+    print("- AI 활용자 집단을 기준으로 각 구성개념의 신뢰도와 요인구조를 한 번에 점검할 수 있다.")
+    print("- 통합 EFA에서 문항들이 이론적으로 예상한 구성개념별 묶음을 대체로 유지하면 이후 회귀 및 매개분석의 측정 기반이 뒷받침된다.")
+    print("- KMO와 Bartlett 결과가 양호하면 표본과 상관구조가 요인분석에 적합하다는 의미다.")
+    print("- 기술통계와 왜도·첨도는 극단적인 비정상성 여부를 확인하는 근거로 활용할 수 있다.")
+
+print(f"완료: {result_path} 생성")
