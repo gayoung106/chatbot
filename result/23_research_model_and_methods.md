@@ -1,5 +1,7 @@
 # 연구모형과 연구방법 정리
 
+> 내부 참조용 작업 문서. 논문 본문 직접 반영은 `24_model_and_methods_for_manuscript.md`를 기준으로 한다.
+
 ## 1. 현재 연구모형
 
 현재 전략은 `Q16_1~Q16_4`를 조직지원 인식의 관측지수로 사용하고, 이를 `motivation`과 병렬로 놓이는 두 번째 독립변수로 해석한 뒤 `Q20_1~Q20_3`를 main item-level outcome으로 분석하는 것이다. `Q20_4`는 supplementary outcome으로 분리한다.

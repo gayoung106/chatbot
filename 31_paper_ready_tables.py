@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -24,7 +23,6 @@ N_BOOT = 5000
 MOTIVATION_ITEMS = ["Q9_3", "Q9_4"]
 EFFECT_ITEMS = [f"Q7_{i}" for i in range(1, 6)]
 SUPPORT_MAIN_ITEMS = [f"Q16_{i}" for i in range(1, 5)]
-SUPPORT_POS6_ITEMS = [f"Q16_{i}" for i in range(1, 7)]
 SUPPORT_FULL_ITEMS = [f"Q16_{i}" for i in range(1, 8)]
 MAIN_DVS = [f"Q20_{i}" for i in range(1, 4)]
 ALL_DVS = [f"Q20_{i}" for i in range(1, 5)]
@@ -130,6 +128,8 @@ def descriptive_table(df: pd.DataFrame) -> pd.DataFrame:
 def reliability_validity_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for construct, items in CONSTRUCT_SPECS.items():
+        if construct == "strategic_expectancy_main":
+            continue
         alpha, _ = pg.cronbach_alpha(data=df[items].dropna())
         avg_r = avg_inter_item_r(df, items)
         cr, ave = one_factor_cr_ave(df, items)
@@ -608,7 +608,7 @@ def main() -> None:
 
         print("## 표 4. 구성개념별 신뢰도 및 타당도 검증 결과\n")
         print_df(rv)
-        print("주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다.\n")
+        print("주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다. `strategic_expectancy_main(Q20_1~Q20_3 평균)`은 메인 분석에 사용하지 않았으므로 신뢰도·타당도 표에서는 제외하였다.\n")
 
         print("## 표 5. 상관관계 분석 결과\n")
         print(corr.to_markdown())
@@ -631,7 +631,7 @@ def main() -> None:
 
         print("## 표 11. 매개효과 검증 결과(BCa bootstrap 5,000회)\n")
         print_df(mediation_df)
-        print("주: 간접효과의 95% BCa 신뢰구간이 0을 포함하지 않으면 유의한 매개효과로 판단하였다.\n")
+        print("주: 간접효과의 95% BCa 신뢰구간이 0을 포함하지 않으면 유의한 매개효과로 판단하였다. 특히 Q20_1에서 `support_main`은 총효과는 비유의하나, 직접효과는 유의한 음(-)의 값, 간접효과는 유의한 양(+)의 값으로 나타나 `inconsistent/competitive mediation` 패턴으로 해석할 수 있다.\n")
 
         print("## 표 12. 독립변수 간 영향력 비교(표준화 계수 기준)\n")
         print_df(beta_df)
@@ -666,11 +666,11 @@ def main() -> None:
         print()
 
         print("# 부록\n")
-        print("## 부록표 A1. Q16 문항 선정 및 제외 근거\n")
+        print("## 부록표 A2. Q16 문항 선정 및 제외 근거\n")
         print_df(q16_appendix_df)
         print("주: 최종 조직지원 인식 변수인 `support_main`은 Q16_1~Q16_4 평균으로 구성하였다.\n")
 
-        print("## 부록표 A2. Q20 문항의 분석상 위치와 선정 근거\n")
+        print("## 부록표 A3. Q20 문항의 분석상 위치와 선정 근거\n")
         print_df(q20_appendix_df)
         print("주: Q20_1~Q20_3은 메인 종속변수이며, Q20_4는 보조 종속변수로 분리하여 분석하였다.\n")
 
