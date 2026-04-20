@@ -39,7 +39,6 @@ CONSTRUCT_SPECS = {
     "motivation": MOTIVATION_ITEMS,
     "effect": EFFECT_ITEMS,
     "support_main": SUPPORT_MAIN_ITEMS,
-    "strategic_expectancy_main": MAIN_DVS,
 }
 
 
@@ -597,7 +596,7 @@ def main() -> None:
 
         print("## 표 1. 기술통계표\n")
         print_df(desc)
-        print("주: `strategic_expectancy_main`은 Q20_1~Q20_3 평균의 참고용 지표이며, 본 연구의 본 분석은 문항별 결과모형을 기준으로 해석한다.\n")
+        print("주: 기술통계는 본 연구의 메인 분석에 실제 투입된 구성개념만 제시하였다. 전략적 기대는 합성지수로 처리하지 않고 Q20_1~Q20_3을 개별 결과항목으로 분석하였다.\n")
 
         print("## 표 2. 구성개념 신뢰도 및 통합 탐색적 요인분석 개요\n")
         print_df(efa_summary)
