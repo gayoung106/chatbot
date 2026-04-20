@@ -1,35 +1,33 @@
-# 02 전처리 결과
+# 02 Preprocessing Summary
 
-분석용 데이터셋 생성과 기본 분포를 요약한다.
+Built the analysis-ready dataset and checked the main control variables.
 
-## 데이터셋 생성 결과
+## Dataset output
 
-- 저장 파일: `chatbot_output_selected_preprocessed.csv`
-- 총 응답 수: 1608
-- AI 활용자 수: 377
-- AI 비활용자 수: 1231
+- Output file: `chatbot_output_selected_preprocessed.csv`
+- Total respondents: 1608
+- AI users: 377
+- AI non-users: 1231
 
-## 재코딩 확인 샘플
-
+## Preview of key derived variables
 ```text
    gender  rank_code  career_code  ai_task_count
-0       1          3            4              0
-1       1          5            4              0
-2       0          3            3              0
-3       0          1            1              0
-4       1          1            1              0
+0       0          3            4              0
+1       0          5            4              0
+2       1          3            3              0
+3       1          1            1              0
+4       0          1            1              1
 ```
 
-## 전체 표본 특성
-
+## Overall sample characteristics
 
 ====================================
 gender distribution (N=1608)
 ====================================
           N     %
 gender           
-0       801  49.8
-1       807  50.2
+0       807  50.2
+1       801  49.8
 
 ====================================
 rank distribution (N=1608)
@@ -75,8 +73,6 @@ SQ4
 기초지방자치단체  647  40.2
 중앙행정기관    545  33.9
 
-## 주요 해석
-
-- 전처리가 완료되어 이후 분석 스크립트가 공통으로 사용하는 `chatbot_output_selected_preprocessed.csv`가 생성되었다.
-- AI 활용 여부, 통제변수, 리커트 문항이 모두 수치형으로 정리되어 회귀, 타당성, EFA 분석에 바로 투입할 수 있는 상태다.
-- `ai_task_count`까지 함께 생성되어 AI 활용 정도에 대한 보조 비교분석도 가능하다.
+## Key note
+- `ai_task_count` is computed as the number of checked Q4 task-use categories.
+- The preprocessed dataset is now ready for all downstream scripts.

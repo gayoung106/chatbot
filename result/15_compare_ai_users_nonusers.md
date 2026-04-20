@@ -1,19 +1,19 @@
-# 15 AI 활용자와 비활용자 집단 비교
+# 15 AI User vs Non-user Comparison
 
-- 전체 응답자 수: 1608
-- AI 활용자: 377
-- AI 비활용자: 1231
+- Total respondents: 1608
+- AI users: 377
+- AI non-users: 1231
 
-## 1. 연속 또는 서열형 변수 비교
+## Appendix Table A1. Descriptive comparison of AI users and non-users
 
-| 변수 | AI 활용자 평균 | AI 활용자 SD | 비활용자 평균 | 비활용자 SD | Mann-Whitney U | p-value |
+| Variable | AI users Mean/Prop. | AI users SD/N | Non-users Mean/Prop. | Non-users SD/N | Test statistic | p-value |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| gender | 0.464 | 0.499 | 0.513 | 0.500 | 220624.0 | 0.095 |
+| gender | 0.536 | 0.499 | 0.487 | 0.500 | 243463.0 | 0.095 |
 | rank_code | 3.125 | 1.312 | 2.962 | 1.300 | 246843.5 | 0.054 |
 | career_code | 2.260 | 1.206 | 2.297 | 1.225 | 228442.0 | 0.634 |
-| ai_task_count | 0.000 | 0.000 | 0.000 | 0.000 | 232043.5 | 1.000 |
+| ai_task_count | 1.984 | 1.209 | 0.000 | 0.000 | 464087.0 | < .001 |
 
-## 2. 범주형 변수 분포 비교
+## Distribution checks for categorical variables
 
 ### SQ1
 
@@ -37,8 +37,7 @@ Q3
 - Chi-square = 1.410
 - p-value = 0.494
 
-## 주요 해석
+## Interpretation
 
-- 이 표는 AI 활용자만을 분석대상으로 제한할 때 발생할 수 있는 표본 선택편의 우려를 점검하기 위한 기초 비교표이다.
-- 집단 간 차이가 확인되더라도 본 연구는 전체 공무원 집단의 일반적 차이를 설명하기보다, AI 활용 경험이 있는 집단 내부의 인식 메커니즘을 분석하는 데 목적이 있다.
-- 따라서 본 연구 결과는 AI 비활용자를 포함한 전체 공무원 집단으로 직접 일반화하지 않도록 해석해야 한다.
+- This table is provided as a descriptive appendix check for possible selection differences between AI users and non-users.
+- The main analysis remains restricted to AI users because the focal mechanism concerns expectations among respondents with direct AI use experience.

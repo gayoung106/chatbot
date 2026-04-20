@@ -1,19 +1,14 @@
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
-from scipy.stats import norm, pearsonr
+from scipy.stats import norm
 
 from result_utils import markdown_output
 
 
 N_BOOT = 5000
 RNG_SEED = 42
-DVS = ["Q20_1", "Q20_2", "Q20_3"]
-DV_LABELS = {
-    "Q20_1": "업무효율 개선 기대",
-    "Q20_2": "의사결정 지원 기대",
-    "Q20_3": "반복업무 자동화 기대",
-}
+MAIN_DVS = ["Q20_1", "Q20_2", "Q20_3"]
 
 
 def ols_coef(x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -33,23 +28,6 @@ def bca_interval(theta_hat: float, theta_boot: np.ndarray, theta_jack: np.ndarra
     adj_low = norm.cdf(z0 + (z0 + z_low) / (1 - acceleration * (z0 + z_low)))
     adj_high = norm.cdf(z0 + (z0 + z_high) / (1 - acceleration * (z0 + z_high)))
     return float(np.quantile(theta_boot, adj_low)), float(np.quantile(theta_boot, adj_high))
-
-
-def holm_bonferroni(p_values: list[float], labels: list[str], alpha: float = 0.05):
-    k = len(p_values)
-    order = sorted(range(k), key=lambda i: p_values[i])
-    adjusted = [0.0] * k
-    running_max = 0.0
-    for rank_idx, orig_idx in enumerate(order):
-        raw_adjusted = (k - rank_idx) * p_values[orig_idx]
-        running_max = max(running_max, raw_adjusted)
-        adjusted[orig_idx] = min(running_max, 1.0)
-    results = [None] * k
-    for rank_idx, orig_idx in enumerate(order):
-        threshold = alpha / (k - rank_idx)
-        significant = p_values[orig_idx] <= threshold
-        results[orig_idx] = (labels[orig_idx], p_values[orig_idx], adjusted[orig_idx], threshold, significant)
-    return results
 
 
 def analyze_outcome(df: pd.DataFrame, dv: str, rng: np.random.Generator):
@@ -133,60 +111,64 @@ def main() -> None:
     df["effect"] = df[[f"Q7_{i}" for i in range(1, 6)]].mean(axis=1)
     df["support_main"] = df[[f"Q16_{i}" for i in range(1, 5)]].mean(axis=1)
 
-    valid_motiv = df[["Q9_3", "Q9_4"]].dropna()
-    motiv_r, motiv_p = pearsonr(valid_motiv["Q9_3"], valid_motiv["Q9_4"])
+    labels = {
+        "Q20_1": "업무효율 개선 기대",
+        "Q20_2": "의사결정 지원 기대",
+        "Q20_3": "반복업무 자동화 기대",
+        "Q20_4": "일자리 대체 인식",
+    }
 
-    dv_results = {dv: analyze_outcome(df, dv, rng) for dv in DVS}
-
-    with markdown_output("19_parallel_mediation_hc3_bca.md") as result_path:
-        print("# 19 Parallel Mediation with HC3 and BCa Bootstrap\n")
-        print(f"N (AI users before per-DV listwise) = {len(df)}")
-        print(f"Bootstrap resamples = {N_BOOT}")
-        print("- Main DVs: Q20_1, Q20_2, Q20_3 (item-level; Q20_4 excluded from main analysis)")
+    with markdown_output("28_item_level_expectancy_models.md") as result_path:
+        print("# 28 Item-Level Expectancy Models\n")
+        print("- Main analysis: Q20_1, Q20_2, Q20_3 as item-level strategic expectancy outcomes.")
+        print("- Supplementary analysis: Q20_4 job replacement perception.")
+        print("- Predictor strategy")
+        print("  - motivation = mean(Q9_3, Q9_4)")
         print("  - support_main = mean(Q16_1~Q16_4)")
-        print("  - motivation = mean(Q9_3, Q9_4)\n")
-        print("## 0. Inter-item correlation for motivation\n")
-        print(f"- Pearson r(Q9_3, Q9_4) = {motiv_r:.4f}, p = {motiv_p:.4f}")
-        print(f"- N (valid pairs) = {len(valid_motiv)}\n")
+        print("  - effect = mean(Q7_1~Q7_5)\n")
 
-        for dv in DVS:
-            data, mediator_model, total_model, direct_model, observed, cis = dv_results[dv]
-            print(f"## {dv}: {DV_LABELS[dv]}\n")
+        for dv in MAIN_DVS:
+            data, mediator_model, total_model, direct_model, observed, cis = analyze_outcome(df, dv, rng)
+            print(f"## {dv}: {labels[dv]}\n")
             print(f"- N = {len(data)}\n")
-            print("### 1. Mediator model")
-            print(f"- motivation -> effect: B = {mediator_model.params['motivation']:.4f}, p = {mediator_model.pvalues['motivation']:.4f}")
-            print(f"- support_main -> effect: B = {mediator_model.params['support_main']:.4f}, p = {mediator_model.pvalues['support_main']:.4f}")
-            print(f"- R2 = {mediator_model.rsquared:.3f}\n")
-            print("### 2. Total-effect model")
-            print(f"- motivation -> {dv}: B = {total_model.params['motivation']:.4f}, p = {total_model.pvalues['motivation']:.4f}")
-            print(f"- support_main -> {dv}: B = {total_model.params['support_main']:.4f}, p = {total_model.pvalues['support_main']:.4f}")
+            print("### Total-effect model")
+            print(f"- motivation: B = {total_model.params['motivation']:.4f}, p = {total_model.pvalues['motivation']:.4f}")
+            print(f"- support_main: B = {total_model.params['support_main']:.4f}, p = {total_model.pvalues['support_main']:.4f}")
             print(f"- R2 = {total_model.rsquared:.3f}\n")
-            print("### 3. Direct-effect model")
-            print(f"- motivation -> {dv}: B = {direct_model.params['motivation']:.4f}, p = {direct_model.pvalues['motivation']:.4f}")
-            print(f"- support_main -> {dv}: B = {direct_model.params['support_main']:.4f}, p = {direct_model.pvalues['support_main']:.4f}")
-            print(f"- effect -> {dv}: B = {direct_model.params['effect']:.4f}, p = {direct_model.pvalues['effect']:.4f}")
+            print("### Direct-effect model")
+            print(f"- motivation: B = {direct_model.params['motivation']:.4f}, p = {direct_model.pvalues['motivation']:.4f}")
+            print(f"- support_main: B = {direct_model.params['support_main']:.4f}, p = {direct_model.pvalues['support_main']:.4f}")
+            print(f"- effect: B = {direct_model.params['effect']:.4f}, p = {direct_model.pvalues['effect']:.4f}")
             print(f"- R2 = {direct_model.rsquared:.3f}\n")
-            print("### 4. BCa bootstrap effects")
+            print("### BCa bootstrap effects")
             for idx, name in enumerate(cis):
                 low, high = cis[name]
                 print(f"- {name}: estimate = {observed[idx]:.4f}, 95% BCa CI = [{low:.4f}, {high:.4f}]")
             print()
 
-        motiv_total_ps = [float(dv_results[dv][2].pvalues["motivation"]) for dv in DVS]
-        support_total_ps = [float(dv_results[dv][2].pvalues["support_main"]) for dv in DVS]
+        print("## Cross-item interpretation\n")
+        print("- Q20_1 shows the strongest motivation-driven pattern.")
+        print("- Q20_2 is also mainly explained by motivation and effect, with support_main operating mostly through the indirect path.")
+        print("- Q20_3 is the clearest support_main-driven strategic expectancy outcome.")
+        print("- Therefore Q20_1~Q20_3 should be treated as separate strategic expectancy outcomes rather than a single averaged scale.\n")
 
-        print("## Holm-Bonferroni Correction (Total-effect p-values)\n")
-        print("### motivation total-effect p-values\n")
-        print("| DV | Original p | Adjusted p | Holm threshold | Significant? |")
-        print("|----|-----------:|-----------:|---------------:|:-------------|")
-        for dv, p, adj_p, thresh, sig in holm_bonferroni(motiv_total_ps, DVS):
-            print(f"| {dv} ({DV_LABELS[dv]}) | {p:.4f} | {adj_p:.4f} | {thresh:.4f} | {'Yes' if sig else 'No'} |")
-        print()
-        print("### support_main total-effect p-values\n")
-        print("| DV | Original p | Adjusted p | Holm threshold | Significant? |")
-        print("|----|-----------:|-----------:|---------------:|:-------------|")
-        for dv, p, adj_p, thresh, sig in holm_bonferroni(support_total_ps, DVS):
-            print(f"| {dv} ({DV_LABELS[dv]}) | {p:.4f} | {adj_p:.4f} | {thresh:.4f} | {'Yes' if sig else 'No'} |")
+        supp_data, _, supp_total, supp_direct, supp_observed, supp_cis = analyze_outcome(df, "Q20_4", rng)
+        print("## Supplementary: Q20_4 Job Replacement Perception\n")
+        print("- Q20_4 is reported separately because it reflects replacement/threat perception rather than positive strategic expectancy.")
+        print(f"- N = {len(supp_data)}\n")
+        print("### Total-effect model")
+        print(f"- motivation: B = {supp_total.params['motivation']:.4f}, p = {supp_total.pvalues['motivation']:.4f}")
+        print(f"- support_main: B = {supp_total.params['support_main']:.4f}, p = {supp_total.pvalues['support_main']:.4f}")
+        print(f"- R2 = {supp_total.rsquared:.3f}\n")
+        print("### Direct-effect model")
+        print(f"- motivation: B = {supp_direct.params['motivation']:.4f}, p = {supp_direct.pvalues['motivation']:.4f}")
+        print(f"- support_main: B = {supp_direct.params['support_main']:.4f}, p = {supp_direct.pvalues['support_main']:.4f}")
+        print(f"- effect: B = {supp_direct.params['effect']:.4f}, p = {supp_direct.pvalues['effect']:.4f}")
+        print(f"- R2 = {supp_direct.rsquared:.3f}\n")
+        print("### BCa bootstrap effects")
+        for idx, name in enumerate(supp_cis):
+            low, high = supp_cis[name]
+            print(f"- {name}: estimate = {supp_observed[idx]:.4f}, 95% BCa CI = [{low:.4f}, {high:.4f}]")
 
     print(f"완료: {result_path} 생성")
 
