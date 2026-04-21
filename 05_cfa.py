@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import brentq
+from scipy.stats import ncx2
 from semopy import Model, calc_stats
 
 from result_utils import markdown_output
@@ -34,22 +36,49 @@ def calc_srmr(model: Model, data: pd.DataFrame) -> float:
     return float(np.sqrt(np.mean((observed_cor[tril_idx] - implied_cor[tril_idx]) ** 2)))
 
 
+def rmsea_ci_90(chi2: float, df: int, n: int) -> tuple[float, float]:
+    """Noncentral chi-square 90% CI for RMSEA."""
+    if df <= 0 or n <= 1:
+        return np.nan, np.nan
+    denom = df * (n - 1)
+
+    def cdf(ncp: float) -> float:
+        return float(ncx2.cdf(chi2, df, ncp))
+
+    lower = 0.0
+    if cdf(0.0) > 0.95:
+        hi = max(1.0, chi2)
+        while cdf(hi) > 0.95:
+            hi *= 2
+        lower = brentq(lambda ncp: cdf(ncp) - 0.95, 0.0, hi)
+
+    hi = max(1.0, chi2)
+    while cdf(hi) > 0.05:
+        hi *= 2
+    upper = brentq(lambda ncp: cdf(ncp) - 0.05, 0.0, hi)
+    return float(np.sqrt(lower / denom)), float(np.sqrt(upper / denom))
+
+
 def fit_summary(model_desc: str, data: pd.DataFrame, label: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     model = Model(model_desc)
     model.fit(data)
     fit = calc_stats(model)
     est = model.inspect(std_est=True)
+    chi2 = float(fit.loc["Value", "chi2"])
+    dof = int(fit.loc["Value", "DoF"])
+    rmsea_lower, rmsea_upper = rmsea_ci_90(chi2, dof, len(data))
     table = pd.DataFrame(
         [
             {
                 "Model": label,
                 "N": int(len(data)),
-                "chi-square": float(fit.loc["Value", "chi2"]),
-                "df": int(fit.loc["Value", "DoF"]),
+                "chi-square": chi2,
+                "df": dof,
                 "p-value": format_p(fit.loc["Value", "chi2 p-value"]),
                 "CFI": float(fit.loc["Value", "CFI"]),
                 "TLI": float(fit.loc["Value", "TLI"]),
                 "RMSEA": float(fit.loc["Value", "RMSEA"]),
+                "RMSEA 90% CI": f"[{rmsea_lower:.3f}, {rmsea_upper:.3f}]",
                 "SRMR": calc_srmr(model, data),
             }
         ]
@@ -71,7 +100,7 @@ def main() -> None:
     motivation ~~ effect
     """
 
-    effect_fit, effect_est = fit_summary(effect_model, effect_data, "One-factor CFA (effect only)")
+    effect_fit, effect_est = fit_summary(effect_model, effect_data, "Supplementary CFA check (effect only)")
     full_fit, full_est = fit_summary(full_model, full_data, "Two-factor CFA (motivation, effect)")
 
     effect_loadings = effect_est[
@@ -91,7 +120,7 @@ def main() -> None:
         print("  - `support_main`: treated as an observed index, not a latent construct")
         print("  - `Q20_1~Q20_4`: treated as item-level outcomes, not a single latent scale\n")
 
-        print("## Main CFA: effect factor only\n")
+        print("## Supplementary CFA check: effect factor only\n")
         print(effect_fit.round(3).to_markdown(index=False))
         print()
 
@@ -106,12 +135,12 @@ def main() -> None:
         print("## Interpretation\n")
         print("- Primary validity evidence in the paper rests on EFA, CR, AVE, Fornell-Larcker, and HTMT criteria.")
         print(
-            f"- Full CFA fit was suboptimal (CFI = {float(full_fit.loc[0, 'CFI']):.3f}, RMSEA = {float(full_fit.loc[0, 'RMSEA']):.3f}, SRMR = {float(full_fit.loc[0, 'SRMR']):.3f}), attributed in part to the 2-item motivation factor structure."
+            f"- The supplementary two-factor CFA showed poor absolute residual fit (`SRMR = {float(full_fit.loc[0, 'SRMR']):.3f}`) and is not used as confirmatory evidence for the full measurement block."
         )
         print(
-            f"- The one-factor CFA for `effect` is reported as the main CFA result for the retained reflective block, but it should still be read cautiously (`CFI = {float(effect_fit.loc[0, 'CFI']):.3f}`, `RMSEA = {float(effect_fit.loc[0, 'RMSEA']):.3f}`, `SRMR = {float(effect_fit.loc[0, 'SRMR']):.3f}`)."
+            f"- The one-factor CFA for `effect` is retained only as a limited supplementary check: `CFI = {float(effect_fit.loc[0, 'CFI']):.3f}`, `TLI = {float(effect_fit.loc[0, 'TLI']):.3f}`, `RMSEA = {float(effect_fit.loc[0, 'RMSEA']):.3f}` with 90% CI {effect_fit.loc[0, 'RMSEA 90% CI']}, and `SRMR = {float(effect_fit.loc[0, 'SRMR']):.3f}`."
         )
-        print("- In low-df models, RMSEA can be inflated and should not be used as the sole basis for rejecting unidimensionality (Kenny et al., 2015).")
+        print("- Because CFI/TLI and RMSEA do not meet conventional fit criteria, CFA is not framed as decisive support for unidimensionality; it is reported transparently as a limitation.")
         print("- `support_main` remains an observed organizational-context index and is not treated as a latent variable.")
 
     print(f"Completed: {result_path}")

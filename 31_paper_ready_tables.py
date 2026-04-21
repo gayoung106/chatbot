@@ -10,6 +10,7 @@ import statsmodels.formula.api as smf
 from factor_analyzer import FactorAnalyzer
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity, calculate_kmo
 from scipy.stats import norm, pearsonr
+from statsmodels.multivariate.manova import MANOVA
 from statsmodels.stats.anova import anova_lm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -72,6 +73,14 @@ def fmt_b_p(b: float, p: float) -> str:
 
 def fmt_ci(low: float, high: float) -> str:
     return f"[{low:.3f}, {high:.3f}]"
+
+
+def fmt_optional_p(p: float | str) -> str:
+    if isinstance(p, str):
+        return p
+    if pd.isna(p):
+        return ""
+    return fmt_p(float(p))
 
 
 def avg_inter_item_r(df: pd.DataFrame, columns: list[str]) -> float:
@@ -146,6 +155,14 @@ def reliability_validity_table(df: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def observed_index_reliability_note(df: pd.DataFrame) -> dict[str, float]:
+    support_alpha, _ = pg.cronbach_alpha(data=df[SUPPORT_MAIN_ITEMS].dropna())
+    return {
+        "support_alpha": float(support_alpha),
+        "support_avg_r": avg_inter_item_r(df, SUPPORT_MAIN_ITEMS),
+    }
 
 
 def reflective_validity_tables(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -253,6 +270,14 @@ def correlation_table(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def standardized_beta_from_model(model: sm.regression.linear_model.RegressionResultsWrapper, data: pd.DataFrame, dv: str, predictor: str) -> float:
+    y_sd = data[dv].std(ddof=0)
+    x_sd = data[predictor].std(ddof=0)
+    if y_sd == 0 or x_sd == 0:
+        return float("nan")
+    return float(model.params[predictor] * x_sd / y_sd)
+
+
 def hierarchical_models(df: pd.DataFrame, dv: str) -> pd.DataFrame:
     if dv == "effect":
         formulas = [
@@ -283,21 +308,84 @@ def hierarchical_models(df: pd.DataFrame, dv: str) -> pd.DataFrame:
         if idx > 0:
             nested = anova_lm(models_nonrobust[idx - 1], models_nonrobust[idx])
             delta_p = fmt_p(float(nested["Pr(>F)"].iloc[1]))
-        row = {
-            "종속변수": dv,
-            "단계": f"모형 {idx + 1}",
-            "N": int(model.nobs),
-            "R²": model.rsquared,
-            "ΔR²": delta_r2,
-            "ΔR² p": delta_p,
-        }
+        formula = formulas[idx]
+        cols = [c.strip() for c in formula.replace("~", "+").split("+")]
+        model_data = df[cols].dropna()
         for predictor in ["motivation", "support_main", "effect"]:
             if predictor in model.params.index:
-                row[predictor] = fmt_b_p(float(model.params[predictor]), float(model.pvalues[predictor]))
-            else:
-                row[predictor] = ""
-        rows.append(row)
+                ci_low, ci_high = model.conf_int().loc[predictor]
+                rows.append(
+                    {
+                        "종속변수": dv,
+                        "단계": f"모형 {idx + 1}",
+                        "예측변수": predictor,
+                        "N": int(model.nobs),
+                        "R²": model.rsquared,
+                        "ΔR²": delta_r2,
+                        "ΔR² p": delta_p,
+                        "B": float(model.params[predictor]),
+                        "SE": float(model.bse[predictor]),
+                        "β": standardized_beta_from_model(model, model_data, dv, predictor),
+                        "95% CI": fmt_ci(float(ci_low), float(ci_high)),
+                        "p": float(model.pvalues[predictor]),
+                        "Holm family": "",
+                        "Holm adjusted p": np.nan,
+                        "Holm critical p": np.nan,
+                        "Holm 유의": "",
+                    }
+                )
     return pd.DataFrame(rows)
+
+
+def add_holm_to_hierarchical_tables(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    combined = pd.concat(
+        [table.assign(_table_key=key, _row_id=table.index) for key, table in tables.items()],
+        ignore_index=True,
+    )
+    families = [
+        (
+            "Q20 총효과 모형(모형2, m=6)",
+            (combined["종속변수"].isin(MAIN_DVS))
+            & (combined["단계"] == "모형 2")
+            & (combined["예측변수"].isin(["motivation", "support_main"])),
+        ),
+        (
+            "Q20 직접효과 모형(모형3, m=9)",
+            (combined["종속변수"].isin(MAIN_DVS))
+            & (combined["단계"] == "모형 3")
+            & (combined["예측변수"].isin(["motivation", "support_main", "effect"])),
+        ),
+    ]
+
+    for family_name, mask in families:
+        family = combined.loc[mask].copy().sort_values("p", kind="mergesort")
+        m = len(family)
+        if m == 0:
+            continue
+        raw_p = family["p"].to_numpy(dtype=float)
+        adjusted = np.maximum.accumulate(raw_p * np.arange(m, 0, -1))
+        adjusted = np.clip(adjusted, 0, 1)
+        reject = []
+        still_rejecting = True
+        for rank, p_value in enumerate(raw_p, start=1):
+            critical = 0.05 / (m - rank + 1)
+            current_reject = bool(still_rejecting and p_value <= critical)
+            reject.append(current_reject)
+            if not current_reject:
+                still_rejecting = False
+            idx = family.index[rank - 1]
+            combined.loc[idx, "Holm family"] = family_name
+            combined.loc[idx, "Holm adjusted p"] = adjusted[rank - 1]
+            combined.loc[idx, "Holm critical p"] = critical
+            combined.loc[idx, "Holm 유의"] = "유의" if current_reject else "비유의"
+
+    output = {}
+    for key, table in tables.items():
+        restored = combined[combined["_table_key"] == key].drop(columns=["_table_key", "_row_id"]).copy()
+        for col in ["p", "Holm adjusted p", "Holm critical p"]:
+            restored[col] = restored[col].map(fmt_optional_p)
+        output[key] = restored
+    return output
 
 
 def vif_table(df: pd.DataFrame, dv: str) -> pd.DataFrame:
@@ -426,16 +514,48 @@ def mediation_table(result_map: dict[str, MediationResult]) -> pd.DataFrame:
     for dv, result in result_map.items():
         for effect_name in order:
             low, high = result.cis[effect_name]
+            p_value = np.nan
+            if effect_name == "direct_motivation":
+                p_value = float(result.direct_model.pvalues["motivation"])
+            elif effect_name == "total_motivation":
+                p_value = float(result.total_model.pvalues["motivation"])
+            elif effect_name == "direct_support_main":
+                p_value = float(result.direct_model.pvalues["support_main"])
+            elif effect_name == "total_support_main":
+                p_value = float(result.total_model.pvalues["support_main"])
             rows.append(
                 {
                     "종속변수": DV_LABELS[dv],
                     "효과": effect_name,
                     "추정치": result.observed[effect_name],
                     "95% BCa CI": fmt_ci(low, high),
-                    "유의성 판단": "유의" if low * high > 0 else "비유의",
+                    "p(HC3)": p_value,
+                    "Holm adjusted p": np.nan,
+                    "Holm critical p": np.nan,
+                    "Holm 유의": "",
+                    "BCa CI 판단": "유의" if low * high > 0 else "비유의",
                 }
             )
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    mask = out["효과"].isin(["total_motivation", "total_support_main"])
+    family = out.loc[mask].copy().sort_values("p(HC3)", kind="mergesort")
+    m = len(family)
+    raw_p = family["p(HC3)"].to_numpy(dtype=float)
+    adjusted = np.maximum.accumulate(raw_p * np.arange(m, 0, -1))
+    adjusted = np.clip(adjusted, 0, 1)
+    still_rejecting = True
+    for rank, p_value in enumerate(raw_p, start=1):
+        critical = 0.05 / (m - rank + 1)
+        current_reject = bool(still_rejecting and p_value <= critical)
+        if not current_reject:
+            still_rejecting = False
+        idx = family.index[rank - 1]
+        out.loc[idx, "Holm adjusted p"] = adjusted[rank - 1]
+        out.loc[idx, "Holm critical p"] = critical
+        out.loc[idx, "Holm 유의"] = "유의" if current_reject else "비유의"
+    for col in ["p(HC3)", "Holm adjusted p", "Holm critical p"]:
+        out[col] = out[col].map(fmt_optional_p)
+    return out
 
 
 def standardized_beta_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -462,6 +582,31 @@ def standardized_beta_table(df: pd.DataFrame) -> pd.DataFrame:
                 "표준화 β(support_main)": beta_s,
                 "표준화 β(effect)": float(model.params["effect"]) if "effect" in model.params.index and dv != "effect" else np.nan,
                 "더 큰 독립변수 영향력": stronger,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def mancova_table(df: pd.DataFrame) -> pd.DataFrame:
+    cols = MAIN_DVS + ["motivation", "support_main", "effect"] + CONTROLS
+    data = df[cols].dropna().copy()
+    model = MANOVA.from_formula(
+        "Q20_1 + Q20_2 + Q20_3 ~ motivation + support_main + effect + gender + rank_code + career_code",
+        data=data,
+    )
+    result = model.mv_test()
+    rows = []
+    for predictor in ["motivation", "support_main", "effect", "gender", "rank_code", "career_code"]:
+        stat = result.results[predictor]["stat"].loc["Pillai's trace"]
+        rows.append(
+            {
+                "효과": predictor,
+                "Pillai's trace": float(stat["Value"]),
+                "Num df": float(stat["Num DF"]),
+                "Den df": float(stat["Den DF"]),
+                "F": float(stat["F Value"]),
+                "p": fmt_p(float(stat["Pr > F"])),
+                "해석": "유의" if float(stat["Pr > F"]) < 0.05 else "비유의",
             }
         )
     return pd.DataFrame(rows)
@@ -506,6 +651,55 @@ def supplementary_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         ]
     )
     return harman, supp
+
+
+def marker_proxy_cmv_summary(df: pd.DataFrame) -> pd.DataFrame:
+    marker = "Q20_4"
+    pairs = [
+        ("motivation", "effect"),
+        ("motivation", "support_main"),
+        ("effect", "support_main"),
+        ("motivation", "Q20_1"),
+        ("motivation", "Q20_2"),
+        ("motivation", "Q20_3"),
+        ("support_main", "Q20_1"),
+        ("support_main", "Q20_2"),
+        ("support_main", "Q20_3"),
+        ("effect", "Q20_1"),
+        ("effect", "Q20_2"),
+        ("effect", "Q20_3"),
+    ]
+    corr_deltas = []
+    for x, y in pairs:
+        sub = df[[x, y, marker]].dropna()
+        zero = pg.corr(sub[x], sub[y], method="pearson").iloc[0]["r"]
+        partial = pg.partial_corr(data=sub, x=x, y=y, covar=marker, method="pearson").iloc[0]["r"]
+        corr_deltas.append(abs(float(partial) - float(zero)))
+
+    coef_deltas = []
+    for dv in MAIN_DVS:
+        base_formula = f"{dv} ~ motivation + support_main + effect + gender + rank_code + career_code"
+        marker_formula = base_formula + f" + {marker}"
+        cols = ["motivation", "support_main", "effect", "gender", "rank_code", "career_code", dv, marker]
+        data = df[cols].dropna().copy()
+        base = smf.ols(base_formula, data=data).fit(cov_type="HC3")
+        marked = smf.ols(marker_formula, data=data).fit(cov_type="HC3")
+        for predictor in ["motivation", "support_main", "effect"]:
+            coef_deltas.append(abs(float(marked.params[predictor]) - float(base.params[predictor])))
+
+    return pd.DataFrame(
+        [
+            {
+                "진단": "Marker-proxy/Lindell-Whitney sensitivity",
+                "marker proxy": marker,
+                "평균 abs_delta_r": float(np.mean(corr_deltas)),
+                "최대 abs_delta_r": float(np.max(corr_deltas)),
+                "평균 abs_delta_B": float(np.mean(coef_deltas)),
+                "최대 abs_delta_B": float(np.max(coef_deltas)),
+                "해석": "계수 변화 제한적",
+            }
+        ]
+    )
 
 
 def appendix_item_selection_tables(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -613,6 +807,7 @@ def main() -> None:
 
     desc = descriptive_table(df)
     rv = reliability_validity_table(df)
+    index_reliability = observed_index_reliability_note(df)
     fl_df, htmt_df = reflective_validity_tables(df)
     efa_summary, efa_loadings = integrated_efa(df)
     corr = correlation_table(df)
@@ -620,11 +815,25 @@ def main() -> None:
     hier_q20_1 = hierarchical_models(df, "Q20_1")
     hier_q20_2 = hierarchical_models(df, "Q20_2")
     hier_q20_3 = hierarchical_models(df, "Q20_3")
+    hier_tables = add_holm_to_hierarchical_tables(
+        {
+            "effect": hier_effect,
+            "Q20_1": hier_q20_1,
+            "Q20_2": hier_q20_2,
+            "Q20_3": hier_q20_3,
+        }
+    )
+    hier_effect = hier_tables["effect"]
+    hier_q20_1 = hier_tables["Q20_1"]
+    hier_q20_2 = hier_tables["Q20_2"]
+    hier_q20_3 = hier_tables["Q20_3"]
     vif = pd.concat([vif_table(df, dv) for dv in ["effect", "Q20_1", "Q20_2", "Q20_3"]], ignore_index=True)
     mediation_results = {dv: mediation_analysis(df, dv) for dv in MAIN_DVS}
     mediation_df = mediation_table(mediation_results)
     beta_df = standardized_beta_table(df)
+    mancova_df = mancova_table(df)
     harman_df, q20_4_df = supplementary_table(df)
+    marker_cmv_df = marker_proxy_cmv_summary(df)
     q16_appendix_df, q20_appendix_df = appendix_item_selection_tables(df)
 
     with markdown_output("31_paper_ready_tables.md") as result_path:
@@ -646,7 +855,7 @@ def main() -> None:
 
         print("## 표 4. 구성개념별 신뢰도 및 타당도 검증 결과\n")
         print_df(rv)
-        print("주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다. `support_main`은 잠재변수보다 조직 맥락을 나타내는 observed index로 다루므로 CR/AVE 보고 대상에서 제외하였다. `strategic_expectancy_main(Q20_1~Q20_3 평균)`은 메인 분석에 사용하지 않았으므로 신뢰도·타당도 표에서는 제외하였다. 보조적 CFA 점검에서 `effect` 5문항 단독 모형의 적합도는 `CFI = .901`, `TLI = .802`, `RMSEA = .236`, `SRMR = .055`였다.\n")
+        print(f"주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다. `support_main`은 잠재변수보다 조직 맥락을 나타내는 observed index로 다루므로 CR/AVE 보고 대상에서 제외하였다. 다만 Q16_1~Q16_4로 구성한 `support_main` 관측지수의 내적 일관성은 Cronbach α = {index_reliability['support_alpha']:.3f}, 평균 문항간 상관 = {index_reliability['support_avg_r']:.3f}로 확인하였다. `strategic_expectancy_main(Q20_1~Q20_3 평균)`은 메인 분석에 사용하지 않았으므로 신뢰도·타당도 표에서는 제외하였다. 보조적 CFA 점검에서 `effect` 5문항 단독 모형은 `CFI = .901`, `TLI = .802`, `RMSEA = .236`, `RMSEA 90% CI = [.199, .275]`, `SRMR = .055`로 나타났다. CFI/TLI 및 RMSEA가 관행적 기준을 충족하지 않으므로, CFA는 단일차원성의 결정적 근거가 아니라 제한적 보조 점검 및 한계로 보고한다.\n")
 
         print("## 표 5. Fornell-Larcker 판별타당도 행렬\n")
         print(fl_df.to_markdown())
@@ -670,7 +879,7 @@ def main() -> None:
         print_df(hier_q20_2)
         print("## 표 11. 위계적 회귀분석 결과(Q20_3: 반복업무 자동화 기대)\n")
         print_df(hier_q20_3)
-        print("주: 계수 셀은 `B (p)` 형식이며, 회귀계수 p값은 HC3 robust standard errors 기준이다. `ΔR² p`는 중첩모형 비교의 보조지표다.\n")
+        print("주: B, SE, p, 95% CI는 HC3 robust standard errors 기준이다. β는 동일 모형 내 표준화 계수이며, 통제변수(gender, rank_code, career_code)는 모형에 포함했으나 표에서는 주요 예측변수만 제시하였다. Holm-Bonferroni 보정은 Q20_1~Q20_3 결과변수군의 주요 계수에 적용하였다. 모형 2의 `motivation` 및 `support_main` 총효과 계수군은 m=6, 모형 3의 `motivation`, `support_main`, `effect` 직접효과 계수군은 m=9로 보정하였다. `Holm critical p`는 각 순위별 보정 후 임계값이며, `Holm 유의`는 순차 Holm 절차를 적용한 최종 유의 여부다. `effect` 매개변수 모형은 단일 매개변수 모형이므로 Holm 보정 대상이 아니다. `ΔR² p`는 중첩모형 비교의 보조지표다.\n")
 
         print("## 표 12. 다중공선성 진단 결과\n")
         print_df(vif)
@@ -678,19 +887,27 @@ def main() -> None:
 
         print("## 표 13. 매개효과 검증 결과(BCa bootstrap 5,000회)\n")
         print_df(mediation_df)
-        print("주: 간접효과의 95% BCa 신뢰구간이 0을 포함하지 않으면 유의한 매개효과로 판단하였다. 전체효과의 Holm-Bonferroni 보정과 간접효과의 BCa bootstrap 신뢰구간은 서로 다른 추론 프레임워크이므로 동일 기준으로 해석하지 않는다(Zhao et al., 2010). 특히 Q20_1에서 `support_main`은 총효과는 비유의하나, 직접효과는 유의한 음(-)의 값, 간접효과는 유의한 양(+)의 값으로 나타나 `inconsistent/competitive mediation` 패턴으로 해석할 수 있다. Q20_3에서 `motivation`의 패턴은 사후적으로 `indirect-only mediation`으로 읽을 수 있으나, 총효과와 직접효과가 모두 비유의하고 suppression 가능성을 배제할 수 없으므로 탐색적 해석에 그쳐야 한다.\n")
+        print("주: `BCa CI 판단`은 95% BCa 신뢰구간이 0을 포함하는지 여부에 따른 판단이다. Holm-Bonferroni 보정은 총효과 p값에만 적용하였고, 총효과의 다중비교 보정 후 판단은 `Holm 유의` 열을 기준으로 해석한다. 간접효과는 p값 및 Holm 보정 대상이 아니며, BCa bootstrap 신뢰구간을 기준으로 별도 판단하였다. 두 기준은 서로 다른 추론 프레임워크이므로 동일 기준으로 해석하지 않는다(Zhao et al., 2010). 특히 Q20_1에서 `support_main`은 총효과는 비유의하나, 직접효과는 유의한 음(-)의 값, 간접효과는 유의한 양(+)의 값으로 나타나 경쟁적 경로 구조를 보인다. Q20_3에서 `motivation`의 패턴은 사후적으로 `indirect-only mediation`으로 읽을 수 있으나, 총효과와 직접효과가 모두 비유의하고 suppression 가능성을 배제할 수 없으므로 탐색적 해석에 그쳐야 한다.\n")
 
         print("## 표 14. 독립변수 간 영향력 비교(표준화 계수 기준)\n")
         print_df(beta_df)
         print("주: 표준화 β는 동일 모형 내 영향력 크기 비교를 위한 값이다. `더 큰 독립변수 영향력`은 |β| 기준으로 motivation과 support_main 중 더 큰 값을 표시하였다.\n")
 
-        print("## 표 15. 추가 분석 1: 공통방법편의 진단(Harman 단일요인 검정)\n")
+        print("## 표 15. 추가 분석 1: 다중 종속변수 보조 MANCOVA 결과\n")
+        print_df(mancova_df)
+        print("주: Q20_1~Q20_3 간 상관은 r = .140~.538로 나타나 종속변수 간 공분산을 완전히 무시하기 어렵다. 이에 따라 `Q20_1 + Q20_2 + Q20_3 ~ motivation + support_main + effect + gender + rank_code + career_code` 모형의 보조 MANCOVA를 수행하였다. Pillai's trace 기준에서 motivation, support_main, effect의 다변량 효과가 모두 유의하여, 주요 예측변수가 세 결과항목을 결합한 다변량 결과공간에서도 설명력을 가진다는 점을 확인하였다. 다만 연구가설은 Q20_1~Q20_3 각각의 내용적으로 구분된 전략적 기대에 대한 방향과 매개경로를 검증하므로, 최종 해석은 HC3 OLS와 Holm-Bonferroni 보정 결과를 기준으로 제시한다.\n")
+
+        print("## 표 16. 추가 분석 2: 공통방법편의 진단(Harman 단일요인 검정)\n")
         print_df(harman_df, decimals=2)
 
-        print("## 표 16. 추가 분석 2: 보조 종속변수(Q20_4: 일자리 대체 인식) 결과\n")
+        print("## 표 17. 추가 분석 3: Marker-proxy 공통방법편의 민감도 분석\n")
+        print_df(marker_cmv_df)
+        print("주: 전용 marker variable이 없는 자료 구조를 고려하여 `Q20_4`를 보수적 marker proxy로 사용한 Lindell-Whitney식 민감도 분석이다. `Q20_4`는 완전한 순수 marker가 아니므로, 이 결과는 확정적 CMB 보정보다 추가 강건성 점검으로 해석한다.\n")
+
+        print("## 표 18. 추가 분석 4: 보조 종속변수(Q20_4: 일자리 대체 인식) 결과\n")
         print_df(q20_4_df)
 
-        print("## 표 17. 논문 서술용 핵심 요약\n")
+        print("## 표 19. 논문 서술용 핵심 요약\n")
         summary_rows = [
             {
                 "주제": "매개변수(effect)",
@@ -698,7 +915,7 @@ def main() -> None:
             },
             {
                 "주제": "Q20_1",
-                "핵심 결과": "업무효율 개선 기대는 motivation의 총효과와 직접효과가 가장 강했고, support_main은 음(-)의 직접효과와 양(+)의 간접효과가 공존하는 비일관적 매개(inconsistent/competitive mediation) 패턴을 보였다.",
+                "핵심 결과": "업무효율 개선 기대에서 support_main은 총효과가 비유의였으나, 직접효과는 음(-), 간접효과는 양(+)의 방향으로 각각 유의하여 직접경로와 간접경로가 상반되는 경쟁적 경로 구조를 보였다.",
             },
             {
                 "주제": "Q20_2",
