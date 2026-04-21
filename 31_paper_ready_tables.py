@@ -311,6 +311,27 @@ def hierarchical_models(df: pd.DataFrame, dv: str) -> pd.DataFrame:
         formula = formulas[idx]
         cols = [c.strip() for c in formula.replace("~", "+").split("+")]
         model_data = df[cols].dropna()
+        if idx == 0:
+            rows.append(
+                {
+                    "종속변수": dv,
+                    "단계": "모형 1",
+                    "예측변수": "Controls only",
+                    "N": int(model.nobs),
+                    "R²": model.rsquared,
+                    "ΔR²": delta_r2,
+                    "ΔR² p": delta_p,
+                    "B": np.nan,
+                    "SE": np.nan,
+                    "β": np.nan,
+                    "95% CI": "",
+                    "p": np.nan,
+                    "Holm family": "",
+                    "Holm adjusted p": np.nan,
+                    "Holm critical p": np.nan,
+                    "Holm 유의": "",
+                }
+            )
         for predictor in ["motivation", "support_main", "effect"]:
             if predictor in model.params.index:
                 ci_low, ci_high = model.conf_int().loc[predictor]
@@ -879,7 +900,7 @@ def main() -> None:
         print_df(hier_q20_2)
         print("## 표 11. 위계적 회귀분석 결과(Q20_3: 반복업무 자동화 기대)\n")
         print_df(hier_q20_3)
-        print("주: B, SE, p, 95% CI는 HC3 robust standard errors 기준이다. β는 동일 모형 내 표준화 계수이며, 통제변수(gender, rank_code, career_code)는 모형에 포함했으나 표에서는 주요 예측변수만 제시하였다. Holm-Bonferroni 보정은 Q20_1~Q20_3 결과변수군의 주요 계수에 적용하였다. 모형 2의 `motivation` 및 `support_main` 총효과 계수군은 m=6, 모형 3의 `motivation`, `support_main`, `effect` 직접효과 계수군은 m=9로 보정하였다. `Holm critical p`는 각 순위별 보정 후 임계값이며, `Holm 유의`는 순차 Holm 절차를 적용한 최종 유의 여부다. `effect` 매개변수 모형은 단일 매개변수 모형이므로 Holm 보정 대상이 아니다. `ΔR² p`는 중첩모형 비교의 보조지표다.\n")
+        print("주: 모형 1은 통제변수(gender, rank_code, career_code)만 포함한 baseline block이며, B/SE/β는 주요 예측변수 중심 표기 원칙에 따라 생략하였다. B, SE, p, 95% CI는 HC3 robust standard errors 기준이다. β는 동일 모형 내 표준화 계수다. Holm-Bonferroni 보정의 동일 족(family)은 동일한 연구질문과 동일한 추론 단계에 속한 Q20_1~Q20_3의 주요 계수군으로 정의하였다. 따라서 모형 2의 `motivation` 및 `support_main` 총효과 6개 검정은 `Q20 총효과 모형(모형2, m=6)`으로, 모형 3의 `motivation`, `support_main`, `effect` 직접효과 9개 검정은 `Q20 직접효과 모형(모형3, m=9)`으로 각각 분리 보정하였다. `Holm critical p`는 각 순위별 보정 후 임계값이며, `Holm 유의`는 순차 Holm 절차를 적용한 최종 유의 여부다. `effect` 매개변수 모형은 Q20 결과변수군에 대한 다중가설 검정이 아니므로 Holm 보정 대상이 아니다. `ΔR² p`는 중첩모형 비교의 보조지표다. H3/H4의 직접효과 가설은 매개변수 `effect`를 포함한 최종모형(모형 3)의 해당 직접경로에 대한 `Holm 유의`를 기준으로 판정하며, 모형 2는 총효과 참고값으로 제시한다. H5/H6의 매개효과는 간접효과의 BCa CI 기준으로 별도 판단한다.\n")
 
         print("## 표 12. 다중공선성 진단 결과\n")
         print_df(vif)
