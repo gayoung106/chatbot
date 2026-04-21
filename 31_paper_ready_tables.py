@@ -127,7 +127,7 @@ def descriptive_table(df: pd.DataFrame) -> pd.DataFrame:
 def reliability_validity_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for construct, items in CONSTRUCT_SPECS.items():
-        if construct == "strategic_expectancy_main":
+        if construct in {"strategic_expectancy_main", "support_main"}:
             continue
         alpha, _ = pg.cronbach_alpha(data=df[items].dropna())
         avg_r = avg_inter_item_r(df, items)
@@ -146,6 +146,40 @@ def reliability_validity_table(df: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def reflective_validity_tables(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    reflective = {
+        "motivation": MOTIVATION_ITEMS,
+        "effect": EFFECT_ITEMS,
+    }
+    ave_map = {name: one_factor_cr_ave(df, items)[1] for name, items in reflective.items()}
+
+    fl = pd.DataFrame(index=reflective.keys(), columns=reflective.keys(), dtype=object)
+    for row_name, row_items in reflective.items():
+        for col_name, col_items in reflective.items():
+            if row_name == col_name:
+                fl.loc[row_name, col_name] = round(float(np.sqrt(ave_map[row_name])), 3)
+            else:
+                row_score = df[row_items].mean(axis=1)
+                col_score = df[col_items].mean(axis=1)
+                valid = pd.concat([row_score, col_score], axis=1).dropna()
+                r, _ = pearsonr(valid.iloc[:, 0], valid.iloc[:, 1])
+                fl.loc[row_name, col_name] = round(float(r), 3)
+
+    hetero = []
+    for a in MOTIVATION_ITEMS:
+        for b in EFFECT_ITEMS:
+            hetero.append(abs(pearsonr(df[[a, b]].dropna()[a], df[[a, b]].dropna()[b])[0]))
+    mono_m = [abs(pearsonr(df[[MOTIVATION_ITEMS[0], MOTIVATION_ITEMS[1]]].dropna()[MOTIVATION_ITEMS[0]], df[[MOTIVATION_ITEMS[0], MOTIVATION_ITEMS[1]]].dropna()[MOTIVATION_ITEMS[1]])[0])]
+    mono_e = []
+    for i in range(len(EFFECT_ITEMS)):
+        for j in range(i + 1, len(EFFECT_ITEMS)):
+            pair = df[[EFFECT_ITEMS[i], EFFECT_ITEMS[j]]].dropna()
+            mono_e.append(abs(pearsonr(pair.iloc[:, 0], pair.iloc[:, 1])[0]))
+    htmt = float(np.mean(hetero) / np.sqrt(np.mean(mono_m) * np.mean(mono_e)))
+    htmt_df = pd.DataFrame([{"Construct pair": "motivation-effect", "HTMT": round(htmt, 3), "Criterion (< .85)": "충족" if htmt < 0.85 else "미달"}])
+    return fl, htmt_df
 
 
 def integrated_efa(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -245,10 +279,10 @@ def hierarchical_models(df: pd.DataFrame, dv: str) -> pd.DataFrame:
     rows = []
     for idx, model in enumerate(models_hc3):
         delta_r2 = np.nan if idx == 0 else model.rsquared - models_hc3[idx - 1].rsquared
-        delta_p = np.nan
+        delta_p = ""
         if idx > 0:
             nested = anova_lm(models_nonrobust[idx - 1], models_nonrobust[idx])
-            delta_p = float(nested["Pr(>F)"].iloc[1])
+            delta_p = fmt_p(float(nested["Pr(>F)"].iloc[1]))
         row = {
             "종속변수": dv,
             "단계": f"모형 {idx + 1}",
@@ -563,6 +597,10 @@ def appendix_item_selection_tables(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
 
 def print_df(df: pd.DataFrame, decimals: int = 3) -> None:
     out = df.copy()
+    if "ΔR² p" in out.columns:
+        out["ΔR² p"] = out["ΔR² p"].map(
+            lambda x: "" if pd.isna(x) or x == "" else (fmt_p(float(x)) if isinstance(x, (int, float, np.floating)) else str(x))
+        )
     num_cols = out.select_dtypes(include=[np.number]).columns
     for col in num_cols:
         out[col] = out[col].map(lambda x: "" if pd.isna(x) else round(float(x), decimals))
@@ -575,6 +613,7 @@ def main() -> None:
 
     desc = descriptive_table(df)
     rv = reliability_validity_table(df)
+    fl_df, htmt_df = reflective_validity_tables(df)
     efa_summary, efa_loadings = integrated_efa(df)
     corr = correlation_table(df)
     hier_effect = hierarchical_models(df, "effect")
@@ -607,42 +646,51 @@ def main() -> None:
 
         print("## 표 4. 구성개념별 신뢰도 및 타당도 검증 결과\n")
         print_df(rv)
-        print("주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다. `strategic_expectancy_main(Q20_1~Q20_3 평균)`은 메인 분석에 사용하지 않았으므로 신뢰도·타당도 표에서는 제외하였다.\n")
+        print("주: CR과 AVE는 각 구성개념에 대해 1요인 모형을 적용해 산출한 보조적 지표다. motivation은 2문항 척도이므로 평균 문항간 상관을 함께 해석하는 것이 적절하다. `support_main`은 잠재변수보다 조직 맥락을 나타내는 observed index로 다루므로 CR/AVE 보고 대상에서 제외하였다. `strategic_expectancy_main(Q20_1~Q20_3 평균)`은 메인 분석에 사용하지 않았으므로 신뢰도·타당도 표에서는 제외하였다. 보조적 CFA 점검에서 `effect` 5문항 단독 모형의 적합도는 `CFI = .901`, `TLI = .802`, `RMSEA = .236`, `SRMR = .055`였다.\n")
 
-        print("## 표 5. 상관관계 분석 결과\n")
+        print("## 표 5. Fornell-Larcker 판별타당도 행렬\n")
+        print(fl_df.to_markdown())
+        print()
+        print("주: 대각선은 각 reflective construct의 AVE 제곱근이며, 비대각선은 구성개념 간 상관계수다. `sqrt(AVE)`가 상관계수보다 크면 판별타당도 기준을 충족한 것으로 본다.\n")
+
+        print("## 표 6. HTMT 비율\n")
+        print_df(htmt_df)
+        print("주: Henseler et al. (2015)에 따라 `HTMT < .85`를 보수적 기준으로 적용하였다.\n")
+
+        print("## 표 7. 상관관계 분석 결과\n")
         print(corr.to_markdown())
         print()
         print("주: 하삼각 행렬에 Pearson 상관계수를 제시하였다. `* p < .05`, `** p < .01`, `*** p < .001`.\n")
 
-        print("## 표 6. 위계적 회귀분석 결과(effect)\n")
+        print("## 표 8. 위계적 회귀분석 결과(effect)\n")
         print_df(hier_effect)
-        print("## 표 7. 위계적 회귀분석 결과(Q20_1: 업무효율 개선 기대)\n")
+        print("## 표 9. 위계적 회귀분석 결과(Q20_1: 업무효율 개선 기대)\n")
         print_df(hier_q20_1)
-        print("## 표 8. 위계적 회귀분석 결과(Q20_2: 의사결정 지원 기대)\n")
+        print("## 표 10. 위계적 회귀분석 결과(Q20_2: 의사결정 지원 기대)\n")
         print_df(hier_q20_2)
-        print("## 표 9. 위계적 회귀분석 결과(Q20_3: 반복업무 자동화 기대)\n")
+        print("## 표 11. 위계적 회귀분석 결과(Q20_3: 반복업무 자동화 기대)\n")
         print_df(hier_q20_3)
         print("주: 계수 셀은 `B (p)` 형식이며, 회귀계수 p값은 HC3 robust standard errors 기준이다. `ΔR² p`는 중첩모형 비교의 보조지표다.\n")
 
-        print("## 표 10. 다중공선성 진단 결과\n")
+        print("## 표 12. 다중공선성 진단 결과\n")
         print_df(vif)
         print("주: 일반적으로 VIF < 10, Tolerance > .10이면 다중공선성 문제는 크지 않다고 본다.\n")
 
-        print("## 표 11. 매개효과 검증 결과(BCa bootstrap 5,000회)\n")
+        print("## 표 13. 매개효과 검증 결과(BCa bootstrap 5,000회)\n")
         print_df(mediation_df)
-        print("주: 간접효과의 95% BCa 신뢰구간이 0을 포함하지 않으면 유의한 매개효과로 판단하였다. 특히 Q20_1에서 `support_main`은 총효과는 비유의하나, 직접효과는 유의한 음(-)의 값, 간접효과는 유의한 양(+)의 값으로 나타나 `inconsistent/competitive mediation` 패턴으로 해석할 수 있다.\n")
+        print("주: 간접효과의 95% BCa 신뢰구간이 0을 포함하지 않으면 유의한 매개효과로 판단하였다. 전체효과의 Holm-Bonferroni 보정과 간접효과의 BCa bootstrap 신뢰구간은 서로 다른 추론 프레임워크이므로 동일 기준으로 해석하지 않는다(Zhao et al., 2010). 특히 Q20_1에서 `support_main`은 총효과는 비유의하나, 직접효과는 유의한 음(-)의 값, 간접효과는 유의한 양(+)의 값으로 나타나 `inconsistent/competitive mediation` 패턴으로 해석할 수 있다. Q20_3에서 `motivation`의 패턴은 사후적으로 `indirect-only mediation`으로 읽을 수 있으나, 총효과와 직접효과가 모두 비유의하고 suppression 가능성을 배제할 수 없으므로 탐색적 해석에 그쳐야 한다.\n")
 
-        print("## 표 12. 독립변수 간 영향력 비교(표준화 계수 기준)\n")
+        print("## 표 14. 독립변수 간 영향력 비교(표준화 계수 기준)\n")
         print_df(beta_df)
         print("주: 표준화 β는 동일 모형 내 영향력 크기 비교를 위한 값이다. `더 큰 독립변수 영향력`은 |β| 기준으로 motivation과 support_main 중 더 큰 값을 표시하였다.\n")
 
-        print("## 표 13. 추가 분석 1: 공통방법편의 진단(Harman 단일요인 검정)\n")
+        print("## 표 15. 추가 분석 1: 공통방법편의 진단(Harman 단일요인 검정)\n")
         print_df(harman_df, decimals=2)
 
-        print("## 표 14. 추가 분석 2: 보조 종속변수(Q20_4: 일자리 대체 인식) 결과\n")
+        print("## 표 16. 추가 분석 2: 보조 종속변수(Q20_4: 일자리 대체 인식) 결과\n")
         print_df(q20_4_df)
 
-        print("## 표 15. 논문 서술용 핵심 요약\n")
+        print("## 표 17. 논문 서술용 핵심 요약\n")
         summary_rows = [
             {
                 "주제": "매개변수(effect)",
@@ -650,7 +698,7 @@ def main() -> None:
             },
             {
                 "주제": "Q20_1",
-                "핵심 결과": "업무효율 개선 기대는 motivation의 총효과와 직접효과가 가장 강했고, support_main은 음(-)의 직접효과와 양(+)의 간접효과가 공존하는 비일관적 매개 패턴을 보였다.",
+                "핵심 결과": "업무효율 개선 기대는 motivation의 총효과와 직접효과가 가장 강했고, support_main은 음(-)의 직접효과와 양(+)의 간접효과가 공존하는 비일관적 매개(inconsistent/competitive mediation) 패턴을 보였다.",
             },
             {
                 "주제": "Q20_2",
@@ -658,7 +706,7 @@ def main() -> None:
             },
             {
                 "주제": "Q20_3",
-                "핵심 결과": "반복업무 자동화 기대는 support_main의 직접효과가 가장 강했고, motivation은 직접효과보다 간접효과가 중심이었다.",
+                "핵심 결과": "반복업무 자동화 기대는 support_main의 직접효과가 가장 강했고, motivation의 간접경로는 유의했지만 총효과와 직접효과는 비유의하여 indirect-only mediation 또는 suppression 가능성을 포함하는 탐색적 패턴으로 해석할 필요가 있다.",
             },
         ]
         print(pd.DataFrame(summary_rows).to_markdown(index=False))
